@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 import { prisma } from "@/lib/db";
+import { ContentScoringService } from "@/lib/services/scoring-service";
 
 const JWT_SECRET = new TextEncoder().encode(
   process.env["NEXTAUTH_SECRET"] ?? "dev-secret-change-in-production"
 );
+const scoringService = new ContentScoringService();
 
 export async function POST(
   req: Request,
@@ -58,6 +60,9 @@ export async function POST(
         sortOrder: existingCount,
       },
     });
+
+    // Recalculate scores now that media is attached
+    await scoringService.updateScores(draftId);
 
     return NextResponse.json({ asset, success: true });
   } catch (err) {
