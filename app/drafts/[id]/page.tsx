@@ -376,11 +376,25 @@ export default function DraftEditorPage() {
               {/* Regenerate */}
               <div className="flex items-center gap-3 pt-2">
                 <button
-                  onClick={async () => { await loadDraft(); }}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg border border-violet-200 text-violet-600 hover:bg-violet-50 transition text-sm font-medium"
+                  onClick={async () => {
+                    setSaving(true);
+                    const token = getToken();
+                    await fetch("/api/drafts/generate", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                      body: JSON.stringify({
+                        brandId: draft.brand?.id ?? "",
+                        regenerateFromDraftId: draft.id,
+                      }),
+                    });
+                    await loadDraft();
+                    setSaving(false);
+                  }}
+                  disabled={saving}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg border border-violet-200 text-violet-600 hover:bg-violet-50 transition text-sm font-medium disabled:opacity-50"
                 >
-                  <RefreshCw className="w-4 h-4" />
-                  Regenerate
+                  <RefreshCw className={cn("w-4 h-4", saving && "animate-spin")} />
+                  {saving ? "Regenerating..." : "Regenerate"}
                 </button>
               </div>
             </div>
@@ -407,7 +421,36 @@ export default function DraftEditorPage() {
                       <div className="space-y-3">
                         {visualPrompts.slice(0, 3).map((prompt, i) => (
                           <div key={i} className="p-4 rounded-xl bg-gray-50 border border-gray-100">
-                            <p className="text-xs font-semibold text-gray-500 mb-2">Concept {i + 1}</p>
+                            <div className="flex items-center justify-between mb-2">
+                              <p className="text-xs font-semibold text-gray-500">Prompt {i + 1}</p>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => { navigator.clipboard.writeText(prompt); }}
+                                  className="text-xs text-violet-600 hover:text-violet-700 font-medium"
+                                >
+                                  Copy prompt
+                                </button>
+                                <button
+                                  onClick={async () => {
+                                    const url = window.prompt("Paste your generated image URL:", "");
+                                    if (url && url.startsWith("http")) {
+                                      setSaving(true);
+                                      const token = getToken();
+                                      await fetch(`/api/drafts/${draft.id}/media`, {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                                        body: JSON.stringify({ imageUrl: url }),
+                                      });
+                                      await loadDraft();
+                                      setSaving(false);
+                                    }
+                                  }}
+                                  className="text-xs text-green-600 hover:text-green-700 font-medium"
+                                >
+                                  Insert image
+                                </button>
+                              </div>
+                            </div>
                             <p className="text-sm text-gray-700 leading-relaxed">{prompt}</p>
                           </div>
                         ))}

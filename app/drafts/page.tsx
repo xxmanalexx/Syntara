@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { PlusCircle, Search, FileText, ChevronRight, Loader2 } from "lucide-react";
+import { PlusCircle, Search, FileText, ChevronRight, Loader2, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -195,6 +195,23 @@ export default function DraftsPage() {
                     </p>
                   </div>
                 )}
+                <button
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (!confirm(`Delete this draft?`)) return;
+                    const token = localStorage.getItem("syntara_token");
+                    await fetch(`/api/drafts/${draft.id}`, {
+                      method: "DELETE",
+                      headers: { Authorization: `Bearer ${token}` },
+                    });
+                    load();
+                  }}
+                  className="p-2 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition opacity-0 group-hover:opacity-100"
+                  title="Delete draft"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
                 <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-violet-400 transition" />
               </div>
             </Link>

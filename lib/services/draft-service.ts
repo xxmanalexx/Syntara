@@ -182,6 +182,33 @@ export class DraftService {
     return copy as unknown as Draft;
   }
 
+  async attachImage(draftId: string, imageUrl: string): Promise<void> {
+    // Find or create workspace from draft
+    const draft = await prisma.draft.findUnique({ where: { id: draftId }, select: { workspaceId: true } });
+    if (!draft) throw new Error("Draft not found");
+
+    // Create the media asset
+    const asset = await prisma.mediaAsset.create({
+      data: {
+        workspaceId: draft.workspaceId,
+        draftId,
+        assetSource: "UPLOAD",
+        mediaType: "IMAGE",
+        url: imageUrl,
+      },
+    });
+
+    // Link to draft
+    await prisma.draftMedia.create({
+      data: {
+        draftId,
+        assetId: asset.id,
+        isPrimary: true,
+        sortOrder: 0,
+      },
+    });
+  }
+
   async delete(id: string): Promise<void> {
     await prisma.draft.delete({ where: { id } });
   }
