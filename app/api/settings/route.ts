@@ -31,7 +31,7 @@ export async function GET(req: Request) {
       });
     }
 
-    return NextResponse.json({ settings });
+    return NextResponse.json({ settings: { ...settings, workspaceId } });
   } catch (err) {
     console.error("Settings GET error:", err);
     const message = err instanceof Error ? err.message : String(err);
