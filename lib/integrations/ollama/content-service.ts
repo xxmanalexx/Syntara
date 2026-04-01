@@ -45,16 +45,26 @@ const SlideCopySchema = z.object({
 });
 
 const CarouselResponseSchema = z.object({
-  conceptDirections: z.array(z.string()).min(3).max(3),
+  conceptDirections: z.array(z.union([z.string(), z.object({ direction: z.string(), concept: z.string().optional() })])).min(3).max(3),
   coverHook: z.string(),
   slideStructure: z.array(SlideStructureSchema).min(5).max(10),
   slideCopy: z.array(SlideCopySchema),
   caption: z.string(),
   cta: z.string(),
-  visualPrompts: z.array(z.string()),
+  visualPrompts: z.array(z.union([z.string(), z.object({ prompt: z.string(), concept: z.string().optional() })])).default([]),
   coverImageConcept: z.string(),
-  generatedSlideVisuals: z.array(z.string()),
-});
+  generatedSlideVisuals: z.array(z.string()).default([]),
+}).transform((obj) => ({
+  ...obj,
+  // Normalize conceptDirections to flat strings
+  conceptDirections: obj.conceptDirections.map((d) =>
+    typeof d === "string" ? d : d.concept ?? d.direction ?? String(d)
+  ),
+  // Normalize visualPrompts to flat strings
+  visualPrompts: obj.visualPrompts.map((v) =>
+    typeof v === "string" ? v : v.prompt ?? v.concept ?? String(v)
+  ),
+}));
 
 export type CarouselResponse = z.infer<typeof CarouselResponseSchema>;
 
@@ -67,14 +77,25 @@ const HookDirectionSchema = z.object({
 });
 
 const ReelResponseSchema = z.object({
-  hookDirections: z.array(HookDirectionSchema).min(3).max(3),
-  scriptOrTalkingPoints: z.string(),
-  shotList: z.array(z.string()),
-  visualStoryboard: z.string(),
+  hookDirections: z.array(z.union([
+    HookDirectionSchema,
+    z.object({ direction: z.string(), hookText: z.string(), whyItWorks: z.string().optional() }),
+  ])).min(3).max(3),
+  scriptOrTalkingPoints: z.union([z.string(), z.array(z.string())]).default(""),
+  shotList: z.array(z.union([z.string(), z.object({ shot: z.string(), description: z.string().optional() })])).default([]),
+  visualStoryboard: z.union([z.string(), z.object({ description: z.string() })]).default(""),
   caption: z.string(),
   cta: z.string(),
-  thumbnailCoverConcept: z.string(),
-});
+  thumbnailCoverConcept: z.union([z.string(), z.object({ concept: z.string() })]).default(""),
+}).transform((obj) => ({
+  ...obj,
+  scriptOrTalkingPoints: Array.isArray(obj.scriptOrTalkingPoints)
+    ? obj.scriptOrTalkingPoints.join("\n")
+    : obj.scriptOrTalkingPoints,
+  shotList: obj.shotList.map((s) => typeof s === "string" ? s : s.shot ?? s.description ?? String(s)),
+  visualStoryboard: typeof obj.visualStoryboard === "string" ? obj.visualStoryboard : obj.visualStoryboard.description ?? "",
+  thumbnailCoverConcept: typeof obj.thumbnailCoverConcept === "string" ? obj.thumbnailCoverConcept : obj.thumbnailCoverConcept.concept ?? "",
+}));
 
 export type ReelResponse = z.infer<typeof ReelResponseSchema>;
 
@@ -94,13 +115,22 @@ const FrameCopySchema = z.object({
 });
 
 const StoryResponseSchema = z.object({
-  conceptDirections: z.array(z.string()).min(3).max(3),
+  conceptDirections: z.array(z.union([z.string(), z.object({ direction: z.string(), concept: z.string().optional() })])).min(3).max(3),
   frameSequence: z.array(FrameSequenceSchema).min(3).max(5),
   frameByFrameCopy: z.array(FrameCopySchema),
   stickerSuggestions: z.array(z.string()),
-  ctaProgression: z.array(z.string()),
-  visualPrompts: z.array(z.string()),
-});
+  ctaProgression: z.union([z.array(z.string()), z.string()]).default([]),
+  visualPrompts: z.array(z.union([z.string(), z.object({ prompt: z.string(), concept: z.string().optional() })])).default([]),
+}).transform((obj) => ({
+  ...obj,
+  conceptDirections: obj.conceptDirections.map((d) =>
+    typeof d === "string" ? d : d.concept ?? d.direction ?? String(d)
+  ),
+  ctaProgression: Array.isArray(obj.ctaProgression) ? obj.ctaProgression : [obj.ctaProgression],
+  visualPrompts: obj.visualPrompts.map((v) =>
+    typeof v === "string" ? v : v.prompt ?? v.concept ?? String(v)
+  ),
+}));
 
 export type StoryResponse = z.infer<typeof StoryResponseSchema>;
 
