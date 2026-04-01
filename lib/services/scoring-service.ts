@@ -135,10 +135,18 @@ export class ContentScoringService {
 
     const { readinessScore, brandScore, completenessScore, insights } = await this.scoreDraft(draft as unknown as Draft);
 
+    const isReady = completenessScore >= 75 && readinessScore >= 60 && brandScore >= 70;
+
     await prisma.$transaction([
       prisma.draft.update({
         where: { id: draftId },
-        data: { readinessScore, brandScore, completenessScore, duplicateFlag: insights.some(i => i.insightType === "DUPLICATE_WARNING") },
+        data: {
+          readinessScore,
+          brandScore,
+          completenessScore,
+          duplicateFlag: insights.some(i => i.insightType === "DUPLICATE_WARNING"),
+          status: isReady ? "READY" : "DRAFT",
+        },
       }),
       prisma.contentInsight.deleteMany({ where: { draftId } }),
       prisma.contentInsight.createMany({
