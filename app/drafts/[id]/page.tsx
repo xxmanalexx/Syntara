@@ -477,9 +477,18 @@ export default function DraftEditorPage() {
                     <p className="text-xs text-gray-500">Sponsored</p>
                   </div>
                 </div>
-                <div className="aspect-square bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center">
-                  <span className="text-amber-400 text-4xl">🖼</span>
-                </div>
+                {draft.mediaAssets && draft.mediaAssets.length > 0 ? (
+                  <img
+                    src={draft.mediaAssets[0].asset.url!}
+                    alt="Post image"
+                    className="w-full h-full object-cover"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-gray-100">
+                    <span className="text-gray-300 text-4xl">🖼</span>
+                  </div>
+                )}
                 <div className="p-4">
                   <div className="flex items-center gap-4 mb-3">
                     <span className="text-gray-800">❤️</span>

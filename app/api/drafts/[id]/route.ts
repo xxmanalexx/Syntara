@@ -46,7 +46,19 @@ export async function PATCH(
 
     await scoringService.updateScores(id);
 
-    return NextResponse.json({ draft: updated });
+    // Re-fetch to get fresh scores + all relations
+    const refreshed = await prisma.draft.findUnique({
+      where: { id },
+      include: {
+        sections: { orderBy: { sortOrder: "asc" } },
+        variants: { orderBy: { createdAt: "asc" } },
+        mediaAssets: { include: { asset: true }, orderBy: { sortOrder: "asc" } },
+        insights: true,
+        brand: true,
+      },
+    });
+
+    return NextResponse.json({ draft: refreshed ?? updated });
   } catch (err) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
