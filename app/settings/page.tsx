@@ -11,6 +11,9 @@ import {
   Check,
   Loader2,
   AlertCircle,
+  Instagram,
+  Plus,
+  Trash2,
 } from "lucide-react";
 
 interface OllamaModels {
@@ -19,6 +22,7 @@ interface OllamaModels {
 
 interface WorkspaceSettings {
   id: string;
+  workspaceId: string;
   ollamaBaseUrl: string;
   ollamaTextModel: string;
   ollamaEmbeddingsModel: string;
@@ -43,6 +47,8 @@ export default function SettingsPage() {
   const [nanoBananaKey, setNanoBananaKey] = useState("");
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [ollamaOnline, setOllamaOnline] = useState(false);
+  const [workspaceId, setWorkspaceId] = useState("");
+  const [connectedAccounts, setConnectedAccounts] = useState<any[]>([]);
 
   const getToken = (): string => {
     if (typeof window === "undefined") return "";
@@ -78,7 +84,8 @@ export default function SettingsPage() {
         console.log("[Settings] Settings response:", data);
         if (data.settings) {
           const s = data.settings as WorkspaceSettings;
-          setOllamaUrl(s.ollamaBaseUrl);
+          if (s.workspaceId) setWorkspaceId(s.workspaceId as string);
+          setOllamaUrl(s.ollamaBaseUrl ?? "http://localhost:11434");
           setTextModel(s.ollamaTextModel);
           setEmbeddingsModel(s.ollamaEmbeddingsModel);
           setNanoBananaUrl(s.nanobananaBaseUrl);
@@ -88,6 +95,15 @@ export default function SettingsPage() {
         const text = await res.text();
         console.error("[Settings] Settings fetch failed:", res.status, text);
         setError(`Failed to load settings (${res.status})`);
+      }
+
+      // Load connected social accounts
+      const accountsRes = await fetch("/api/settings/accounts", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (accountsRes.ok) {
+        const accountsData = await accountsRes.json();
+        setConnectedAccounts(accountsData.accounts ?? []);
       }
 
       // Load Ollama models
@@ -392,9 +408,73 @@ export default function SettingsPage() {
           {/* ── Connections ── */}
           {tab === "connections" && (
             <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-6">
-              <h2 className="text-lg font-semibold text-gray-900">Connected Accounts</h2>
-              <div className="p-4 rounded-xl border border-dashed border-gray-200">
-                <p className="text-sm text-gray-500">Connect your Instagram Professional account via Settings → Connections.</p>
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-gray-900">Connected Accounts</h2>
+                <a
+                  href={`/api/instagram/connect?workspaceId=${workspaceId}`}
+                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-500 text-white text-sm font-medium rounded-lg hover:opacity-90 transition"
+                >
+                  <Plus className="w-4 h-4" />
+                  Connect Instagram
+                </a>
+              </div>
+
+              {connectedAccounts.length === 0 ? (
+                <div className="py-8 text-center">
+                  <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <Instagram className="w-6 h-6 text-gray-400" />
+                  </div>
+                  <p className="text-sm font-medium text-gray-700 mb-1">No Instagram accounts connected</p>
+                  <p className="text-xs text-gray-400">Connect your Instagram Professional account to start publishing content.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {connectedAccounts.map((account) => (
+                    <div key={account.instagramId} className="flex items-center justify-between p-4 rounded-xl border border-gray-100 hover:border-gray-200 transition">
+                      <div className="flex items-center gap-3">
+                        {account.profileImageUrl ? (
+                          <img src={account.profileImageUrl} alt={account.username} className="w-10 h-10 rounded-full object-cover" />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-600 to-pink-500 flex items-center justify-center">
+                            <Instagram className="w-5 h-5 text-white" />
+                          </div>
+                        )}
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900">@{account.username}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                              account.accountStatus === "ACTIVE"
+                                ? "bg-green-100 text-green-700"
+                                : "bg-amber-100 text-amber-700"
+                            }`}>
+                              {account.accountStatus === "ACTIVE" ? "Active" : "Pending Review"}
+                            </span>
+                            <span className="text-xs text-gray-400">
+                              {account.isProfessional ? "Professional" : "Personal"}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      {account.followerCount !== null && (
+                        <p className="text-xs text-gray-400">{Number(account.followerCount).toLocaleString()} followers</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="pt-2 border-t border-gray-100">
+                <p className="text-xs text-gray-400">
+                  Only Instagram Professional accounts (Business or Creator) can be connected.{" "}
+                  <a
+                    href="https://help.instagram.com/502981118235528"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline hover:text-gray-600"
+                  >
+                    Learn how to switch to a Professional account.
+                  </a>
+                </p>
               </div>
             </div>
           )}
