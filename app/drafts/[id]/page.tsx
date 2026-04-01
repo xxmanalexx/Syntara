@@ -38,7 +38,7 @@ interface Draft {
   readinessScore: number;
   brandScore: number;
   completenessScore: number;
-  captionVariants: DraftVariant[];
+  variants: DraftVariant[];
   brand: DraftBrand;
   insights: DraftInsight[];
   mediaAssets: Array<{ asset: { id: string; url: string | null } }>;
@@ -131,7 +131,7 @@ export default function DraftEditorPage() {
   }
 
   function applyVariant(idx: number) {
-    const variant = draft?.captionVariants[idx];
+    const variant = draft?.variants[idx];
     if (!variant || !draft) return;
     setSelectedVariantIdx(idx);
     const data = variant.data as Record<string, unknown>;
@@ -275,18 +275,18 @@ export default function DraftEditorPage() {
                   <Sparkles className="w-4 h-4 text-violet-500" />
                   <span className="text-sm font-semibold text-gray-700">Caption</span>
                 </div>
-                {draft.captionVariants.length > 1 && (
+                {draft.variants.length > 1 && (
                   <div className="relative">
                     <button
                       onClick={() => setShowVariants(!showVariants)}
                       className="flex items-center gap-1 text-xs text-violet-600 hover:text-violet-700 font-medium"
                     >
-                      {showVariants ? "Hide" : "Show"} variants ({draft.captionVariants.length})
+                      {showVariants ? "Hide" : "Show"} variants ({draft.variants.length})
                       <ChevronDown className="w-3.5 h-3.5" />
                     </button>
                     {showVariants && (
                       <div className="absolute right-0 top-8 z-10 w-80 bg-white rounded-xl border border-gray-200 shadow-lg p-3 space-y-2">
-                        {draft.captionVariants.map((v, i) => (
+                        {draft.variants.map((v, i) => (
                           <button
                             key={v.id}
                             onClick={() => applyVariant(i)}
@@ -396,9 +396,9 @@ export default function DraftEditorPage() {
                   Generate images
                 </button>
               </div>
-              {draft.captionVariants[selectedVariantIdx]
+              {draft.variants[selectedVariantIdx]
                 ? (() => {
-                    const vp = captionVariantData(draft.captionVariants[selectedVariantIdx]);
+                    const vp = captionVariantData(draft.variants[selectedVariantIdx]);
                     const visualPrompts = (vp.visualPrompts ?? vp.visualConceptPrompts ?? []) as string[];
                     if (!visualPrompts.length) {
                       return <p className="text-sm text-gray-400 py-4 text-center">No visual prompts generated yet.</p>;
@@ -488,13 +488,13 @@ export default function DraftEditorPage() {
           {/* Variants */}
           <div className="bg-white rounded-xl border border-gray-100 p-4">
             <h3 className="text-sm font-semibold text-gray-700 mb-3">
-              Content Variants ({draft.captionVariants.length})
+              Content Variants ({draft.variants.length})
             </h3>
-            {draft.captionVariants.length === 0 && (
+            {draft.variants.length === 0 && (
               <p className="text-sm text-gray-400 text-center py-4">No variants generated.</p>
             )}
             <div className="space-y-2">
-              {draft.captionVariants.map((v, i) => (
+              {draft.variants.map((v, i) => (
                 <button
                   key={v.id}
                   onClick={() => applyVariant(i)}
