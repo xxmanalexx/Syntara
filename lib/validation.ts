@@ -16,6 +16,7 @@ export const registerSchema = z.object({
 // ─── Brand Profile ─────────────────────────────────────────────────────────────
 
 export const brandProfileSchema = z.object({
+  workspaceId: z.string().cuid(),
   name: z.string().min(1, "Brand name is required"),
   description: z.string().optional(),
   audienceDesc: z.string().optional(),
@@ -103,6 +104,20 @@ export const imageGenerationSchema = z.object({
 export type ImageGenerationInput = z.infer<typeof imageGenerationSchema>;
 
 // ─── Draft Editing ────────────────────────────────────────────────────────────
+
+export const createDraftSchema = z.object({
+  workspaceId: z.string().cuid(),
+  brandId: z.string().cuid(),
+  contentType: z.enum(["FEED_POST", "CAROUSEL", "REEL", "STORY"]),
+  caption: z.string().optional(),
+  cta: z.string().optional(),
+  hashtags: z.array(z.string()).optional(),
+  altText: z.string().optional(),
+  tone: z.enum(["PROFESSIONAL", "CASUAL", "BOLD", "SAFE", "PREMIUM", "PLAYFUL", "EMPOWERING", "MINIMAL"]).optional(),
+  meta: z.record(z.any()).optional(),
+});
+
+export type CreateDraftInput = z.infer<typeof createDraftSchema>;
 
 export const updateDraftSchema = z.object({
   caption: z.string().max(2200).optional(),

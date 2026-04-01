@@ -218,6 +218,8 @@ export interface PublishResult {
 
 export interface AnalyticsSnapshot {
   id: string;
+  socialAccountId: string;
+  workspaceId: string;
   instagramMediaId: string;
   igShortCode: string;
   postUrl: string;
@@ -231,6 +233,7 @@ export interface AnalyticsSnapshot {
   impressions?: number;
   reach?: number;
   plays?: number;
+  followerCount?: number;
   syncedAt: Date;
 }
 

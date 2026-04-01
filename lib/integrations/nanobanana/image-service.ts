@@ -106,7 +106,7 @@ export class NanoBananaImageService {
           model: "nanobanana",
           seed: image.seed !== undefined ? String(image.seed) : undefined,
           dimensions: image.dimensions,
-        } as ImageAssetMeta,
+        } as object,
       },
     });
 
@@ -158,7 +158,7 @@ export class NanoBananaImageService {
           prompt: newPrompt,
           normalizedPrompt: image.revisedPrompt ?? newPrompt,
           seed: image.seed !== undefined ? String(image.seed) : undefined,
-        } as ImageAssetMeta,
+        } as object,
       },
     });
 
@@ -200,7 +200,7 @@ export class NanoBananaImageService {
         meta: {
           prompt: req.prompt,
           normalizedPrompt: result.image.revisedPrompt ?? req.prompt,
-        } as ImageAssetMeta,
+        } as object,
       },
     });
 
@@ -236,7 +236,7 @@ export class NanoBananaImageService {
           meta: {
             prompt: prompt ?? "",
             normalizedPrompt: image.revisedPrompt ?? prompt ?? "",
-          } as ImageAssetMeta,
+          } as object,
         },
       });
       createdAssets.push(asset as unknown as ImageAsset);

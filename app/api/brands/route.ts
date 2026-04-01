@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
+import { jwtVerify } from "jose";
 import { prisma } from "@/lib/db";
 import { brandProfileSchema } from "@/lib/validation";
+
+const JWT_SECRET = new TextEncoder().encode(
+  process.env.NEXTAUTH_SECRET ?? "dev-secret-change-in-production"
+);
 
 export async function GET(req: Request) {
   const token = req.headers.get("authorization")?.replace("Bearer ", "");
@@ -11,8 +16,19 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
+    const token = req.headers.get("authorization")?.replace("Bearer ", "");
+    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    let workspaceId: string;
+    try {
+      const { payload } = await jwtVerify(token, JWT_SECRET);
+      workspaceId = payload.workspaceId as string;
+    } catch {
+      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+    }
+
     const body = await req.json();
-    const parsed = brandProfileSchema.safeParse(body);
+    const parsed = brandProfileSchema.safeParse({ ...body, workspaceId });
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
     }

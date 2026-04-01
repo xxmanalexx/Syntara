@@ -108,16 +108,16 @@ enum InsightType {
 // ─── Models ──────────────────────────────────────────────────────────────────
 
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  name          String?
-  passwordHash  String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String?
+  passwordHash String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  workspaces    Workspace[]
-  accounts      SocialAccount[]
-  usageEvents   UsageEvent[]
+  workspaces  Workspace[]
+  accounts    SocialAccount[]
+  usageEvents UsageEvent[]
 }
 
 model Workspace {
@@ -127,35 +127,36 @@ model Workspace {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user           User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   brands         BrandProfile[]
   drafts         Draft[]
   mediaAssets    MediaAsset[]
   scheduledPosts ScheduledPost[]
   analytics      AnalyticsSnapshot[]
+  socialAccounts SocialAccount[]
 }
 
 model BrandProfile {
-  id               String   @id @default(cuid())
-  workspaceId      String
-  name             String
-  description      String?
-  audienceDesc     String?
-  voiceGuidance    String?
-  styleKeywords    String[]
-  bannedPhrases    String[]
-  bannedClaims     String[]
-  ctaPreferences   String?
-  visualStyle      String?
-  colorReferences  String[]
+  id              String   @id @default(cuid())
+  workspaceId     String
+  name            String
+  description     String?
+  audienceDesc    String?
+  voiceGuidance   String?
+  styleKeywords   String[]
+  bannedPhrases   String[]
+  bannedClaims    String[]
+  ctaPreferences  String?
+  visualStyle     String?
+  colorReferences String[]
   referenceUrls   String[]
-  negativePrompts  String[]
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  negativePrompts String[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  workspace        Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  drafts           Draft[]
-  contentSources   ContentSource[]
+  workspace      Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  drafts         Draft[]
+  contentSources ContentSource[]
 }
 
 model SocialAccount {
@@ -163,94 +164,95 @@ model SocialAccount {
   userId          String
   workspaceId     String
   platform        Platform      @default(INSTAGRAM)
-  instagramId     String?        @unique
+  instagramId     String?       @unique
   username        String?
   displayName     String?
   profileImageUrl String?
-  accessToken     String?        // encrypted
-  refreshToken    String?        // encrypted
+  accessToken     String? // encrypted
+  refreshToken    String? // encrypted
   tokenExpiresAt  DateTime?
   accountStatus   AccountStatus @default(PENDING_REVIEW)
   isProfessional  Boolean       @default(false)
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
-  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  workspace      Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace       Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   publishAttempts PublishAttempt[]
   analytics       AnalyticsSnapshot[]
 }
 
 model ContentSource {
-  id           String      @id @default(cuid())
+  id           String   @id @default(cuid())
   brandId      String
-  sourceType   String      // "topic" | "note" | "product_update" | "launch_update" | "promo_offer" | "url" | "upload" | "brief" | "draft_duplication"
+  sourceType   String // "topic" | "note" | "product_update" | "launch_update" | "promo_offer" | "url" | "upload" | "brief" | "draft_duplication"
   rawContent   String?
   url          String?
   uploadedUrls String[]
-  metadata     Json?       // extracted OG data, etc.
-  createdAt    DateTime    @default(now())
+  metadata     Json? // extracted OG data, etc.
+  createdAt    DateTime @default(now())
 
-  brand       BrandProfile @relation(fields: [brandId], references: [id], onDelete: Cascade)
-  draft       Draft?
+  brand BrandProfile @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  draft Draft?
 }
 
 model Draft {
-  id              String       @id @default(cuid())
-  workspaceId     String
-  brandId         String
-  sourceId        String?      @unique
-  contentType     ContentType
-  status          DraftStatus  @default(DRAFT)
-  tone            TonePreset   @default(CASUAL)
+  id          String      @id @default(cuid())
+  workspaceId String
+  brandId     String
+  sourceId    String?     @unique
+  contentType ContentType
+  status      DraftStatus @default(DRAFT)
+  tone        TonePreset  @default(CASUAL)
 
   // Feed post fields
   caption         String?
-  captionVariants String[]     // stored as JSON array of strings
+  captionVariants String[] // stored as JSON array of strings
   cta             String?
   hashtags        String[]
   altText         String?
 
   // Reel fields
-  reelHook        String?
-  reelScript      String?
-  reelShotList    String[]
-  reelCaption     String?
+  reelHook     String?
+  reelScript   String?
+  reelShotList String[]
+  reelCaption  String?
 
   // Story fields
-  storyFrames     Json?        // [{frameNumber, copy, stickerSuggestions, cta}]
+  storyFrames Json? // [{frameNumber, copy, stickerSuggestions, cta}]
 
   // Scoring
-  readinessScore  Int?         // 0–100
-  brandScore       Int?         // 0–100
-  completenessScore Int?        // 0–100
-  duplicateFlag   Boolean      @default(false)
+  readinessScore    Int? // 0–100
+  brandScore        Int? // 0–100
+  completenessScore Int? // 0–100
+  duplicateFlag     Boolean @default(false)
 
   // Metadata
-  meta            Json?        // {instagramId, permalink, etc.}
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-  publishedAt     DateTime?
+  meta        Json? // {instagramId, permalink, etc.}
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  publishedAt DateTime?
 
-  workspace      Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  brand          BrandProfile   @relation(fields: [brandId], references: [id], onDelete: Cascade)
-  source         ContentSource? @relation(fields: [sourceId], references: [id])
-  sections       DraftSection[]
-  variants       DraftVariant[]
-  mediaAssets    DraftMedia[]
-  scheduledPost  ScheduledPost?
-  insights       ContentInsight[]
+  workspace     Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  brand         BrandProfile     @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  source        ContentSource?   @relation(fields: [sourceId], references: [id])
+  sections      DraftSection[]
+  variants      DraftVariant[]
+  mediaAssets   DraftMedia[]
+  scheduledPost ScheduledPost?
+  insights      ContentInsight[]
+  media         MediaAsset[]
 }
 
 model DraftVariant {
-  id          String   @id @default(cuid())
-  draftId     String
-  name        String   // "A", "B", "C" or descriptive
-  isSelected  Boolean  @default(false)
-  data        Json     // full structured copy variant
-  createdAt   DateTime @default(now())
+  id         String   @id @default(cuid())
+  draftId    String
+  name       String // "A", "B", "C" or descriptive
+  isSelected Boolean  @default(false)
+  data       Json // full structured copy variant
+  createdAt  DateTime @default(now())
 
-  draft       Draft    @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  draft Draft @relation(fields: [draftId], references: [id], onDelete: Cascade)
 }
 
 model DraftSection {
@@ -259,95 +261,96 @@ model DraftSection {
   sectionType SectionType
   sortOrder   Int
   content     String?
-  promptUsed  String?     // original Ollama prompt
+  promptUsed  String? // original Ollama prompt
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
-  draft       Draft       @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  draft Draft @relation(fields: [draftId], references: [id], onDelete: Cascade)
 }
 
 model MediaAsset {
-  id             String       @id @default(cuid())
-  workspaceId    String
-  draftId        String?
-  instagramId    String?      @unique
-  assetSource    AssetSource
-  mediaType      MediaType    @default(IMAGE)
-  url            String
-  thumbnailUrl   String?
-  width          Int?
-  height         Int?
-  mimeType       String?
-  altText        String?
-  meta           Json?        // Instagram media metadata
-  createdAt      DateTime     @default(now())
+  id           String      @id @default(cuid())
+  workspaceId  String
+  draftId      String?
+  instagramId  String?     @unique
+  assetSource  AssetSource
+  mediaType    MediaType   @default(IMAGE)
+  url          String
+  thumbnailUrl String?
+  width        Int?
+  height       Int?
+  mimeType     String?
+  altText      String?
+  meta         Json? // Instagram media metadata
+  createdAt    DateTime    @default(now())
 
-  workspace      Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  draft          Draft?      @relation(fields: [draftId], references: [id])
+  workspace      Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  draft          Draft?               @relation(fields: [draftId], references: [id])
   imageJobs      ImageGenerationJob[]
   promptVersions PromptVersion[]
+  DraftMedia     DraftMedia[]
 }
 
 model DraftMedia {
-  draftId    String
-  assetId    String
-  isPrimary  Boolean @default(false)
-  sortOrder  Int     @default(0)
+  draftId   String
+  assetId   String
+  isPrimary Boolean @default(false)
+  sortOrder Int     @default(0)
 
-  draft      Draft      @relation(fields: [draftId], references: [id], onDelete: Cascade)
-  asset      MediaAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  draft Draft      @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  asset MediaAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
 
   @@id([draftId, assetId])
 }
 
 model ImageGenerationJob {
-  id             String          @id @default(cuid())
-  assetId        String?
-  promptId       String?
-  status         ImageJobStatus  @default(PENDING)
-  providerJobId  String?         // Nano Banana job ID
-  requestedAt    DateTime        @default(now())
-  completedAt    DateTime?
-  errorMessage   String?
-  requestMeta   Json?           // {prompt, model, size, style}
-  responseMeta  Json?           // {url, dimensions, format}
+  id            String         @id @default(cuid())
+  assetId       String?
+  promptId      String?
+  status        ImageJobStatus @default(PENDING)
+  providerJobId String? // Nano Banana job ID
+  requestedAt   DateTime       @default(now())
+  completedAt   DateTime?
+  errorMessage  String?
+  requestMeta   Json? // {prompt, model, size, style}
+  responseMeta  Json? // {url, dimensions, format}
 
-  asset          MediaAsset?    @relation(fields: [assetId], references: [id])
-  prompt         PromptVersion? @relation(fields: [promptId], references: [id])
+  asset  MediaAsset?    @relation(fields: [assetId], references: [id])
+  prompt PromptVersion? @relation(fields: [promptId], references: [id])
 }
 
 model PromptVersion {
-  id           String   @id @default(cuid())
-  assetId      String?
-  draftSectionId String?
-  provider     String   // "nanobanana" | "ollama"
-  prompt       String
+  id               String   @id @default(cuid())
+  assetId          String?
+  draftSectionId   String?
+  provider         String // "nanobanana" | "ollama"
+  prompt           String
   normalizedPrompt String?
-  modelUsed    String?
-  parameters   Json?    // size, style, seed, etc.
-  outputUrl    String?
-  outputMeta   Json?
-  createdAt    DateTime @default(now())
+  modelUsed        String?
+  parameters       Json? // size, style, seed, etc.
+  outputUrl        String?
+  outputMeta       Json?
+  createdAt        DateTime @default(now())
 
-  asset        MediaAsset?           @relation(fields: [assetId], references: [id])
-  imageJobs    ImageGenerationJob[]
+  asset     MediaAsset?          @relation(fields: [assetId], references: [id])
+  imageJobs ImageGenerationJob[]
 }
 
 model ScheduledPost {
-  id             String        @id @default(cuid())
-  draftId        String        @unique
-  workspaceId    String
-  scheduledAt    DateTime
-  publishStatus  PublishStatus @default(SCHEDULED)
-  instagramId    String?
-  permalink      String?
-  retryCount     Int           @default(0)
-  lastError      String?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  id            String        @id @default(cuid())
+  draftId       String        @unique
+  workspaceId   String
+  scheduledAt   DateTime
+  publishStatus PublishStatus @default(SCHEDULED)
+  instagramId   String?
+  permalink     String?
+  retryCount    Int           @default(0)
+  lastError     String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
-  draft          Draft         @relation(fields: [draftId], references: [id], onDelete: Cascade)
-  workspace      Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  draft           Draft            @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  workspace       Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   publishAttempts PublishAttempt[]
 }
 
@@ -356,62 +359,62 @@ model PublishAttempt {
   scheduledPostId String?
   socialAccountId String?
   status          PublishStatus
-  instagramId    String?
+  instagramId     String?
   permalink       String?
   errorCode       String?
   errorMessage    String?
   attemptedAt     DateTime      @default(now())
 
-  scheduledPost   ScheduledPost? @relation(fields: [scheduledPostId], references: [id])
-  socialAccount   SocialAccount? @relation(fields: [socialAccountId], references: [id])
+  scheduledPost ScheduledPost? @relation(fields: [scheduledPostId], references: [id])
+  socialAccount SocialAccount? @relation(fields: [socialAccountId], references: [id])
 }
 
 model AnalyticsSnapshot {
-  id              String   @id @default(cuid())
-  socialAccountId String
-  workspaceId     String
-  instagramMediaId String? @unique
-  igShortCode     String?  // Instagram shortcode for URL construction
-  postUrl         String?
-  postType        ContentType?
-  caption         String?
-  publishedAt     DateTime?
-  likesCount      Int      @default(0)
-  commentsCount   Int      @default(0)
-  savesCount      Int      @default(0)
-  sharesCount     Int      @default(0)
-  impressions     Int?
-  reach           Int?
-  plays           Int?
-  followerCount   Int?
-  syncedAt        DateTime @default(now())
+  id               String       @id @default(cuid())
+  socialAccountId  String
+  workspaceId      String
+  instagramMediaId String?      @unique
+  igShortCode      String? // Instagram shortcode for URL construction
+  postUrl          String?
+  postType         ContentType?
+  caption          String?
+  publishedAt      DateTime?
+  likesCount       Int          @default(0)
+  commentsCount    Int          @default(0)
+  savesCount       Int          @default(0)
+  sharesCount      Int          @default(0)
+  impressions      Int?
+  reach            Int?
+  plays            Int?
+  followerCount    Int?
+  syncedAt         DateTime     @default(now())
 
-  socialAccount   SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
-  workspace       Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  socialAccount SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+  workspace     Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 }
 
 model ContentInsight {
-  id         String       @id @default(cuid())
-  draftId    String
+  id          String      @id @default(cuid())
+  draftId     String
   insightType InsightType
-  severity   String       // "info" | "warning" | "critical"
-  message    String
-  data       Json?
-  createdAt  DateTime     @default(now())
+  severity    String // "info" | "warning" | "critical"
+  message     String
+  data        Json?
+  createdAt   DateTime    @default(now())
 
-  draft      Draft        @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  draft Draft @relation(fields: [draftId], references: [id], onDelete: Cascade)
 }
 
 model UsageEvent {
-  id          String   @id @default(cuid())
-  userId      String
-  eventType   String   // "ollama_generation" | "image_generation" | "publish" | "login"
-  model       String?
-  durationMs  Int?
-  success     Boolean
-  errorMsg    String?
-  meta        Json?
-  createdAt   DateTime @default(now())
+  id         String   @id @default(cuid())
+  userId     String
+  eventType  String // "ollama_generation" | "image_generation" | "publish" | "login"
+  model      String?
+  durationMs Int?
+  success    Boolean
+  errorMsg   String?
+  meta       Json?
+  createdAt  DateTime @default(now())
 
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
