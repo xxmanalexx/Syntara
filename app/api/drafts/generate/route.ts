@@ -61,6 +61,10 @@ export async function POST(req: Request) {
       );
     }
 
+    console.log(`[Generate] workspace=${workspaceId} brandId=${brandId} brand=${brand.name}`);
+    console.log(`[Generate] brand.keywords=${brand.styleKeywords.join(", ")}`);
+    console.log(`[Generate] brand.banned=${brand.bannedPhrases.join(", ")}`);
+
     // ── Load Ollama config ──────────────────────────────────────────────────
     const ollamaConfig = await getOllamaConfig(workspaceId);
     console.log(`[Generate] brand=${brand.name} model=${ollamaConfig.textModel}`);

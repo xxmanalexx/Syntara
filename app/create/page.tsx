@@ -71,6 +71,7 @@ export default function CreatePage() {
     setLoading(true);
     setError("");
     try {
+      console.log("[Create] Submitting:", JSON.stringify({ ...form }));
       const res = await fetch("/api/drafts/generate", {
         method: "POST",
         headers: {
