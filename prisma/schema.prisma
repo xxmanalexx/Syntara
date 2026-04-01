@@ -134,6 +134,7 @@ model Workspace {
   scheduledPosts ScheduledPost[]
   analytics      AnalyticsSnapshot[]
   socialAccounts SocialAccount[]
+  settings       WorkspaceSettings?
 }
 
 model BrandProfile {
@@ -417,4 +418,18 @@ model UsageEvent {
   createdAt  DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model WorkspaceSettings {
+  id                    String  @id @default(cuid())
+  workspaceId           String  @unique
+  ollamaBaseUrl        String  @default("http://localhost:11434")
+  ollamaTextModel      String  @default("llama3.2:latest")
+  ollamaEmbeddingsModel String @default("nomic-embed-text:latest")
+  nanobananaApiKey     String?
+  nanobananaBaseUrl    String  @default("https://api.nanobanana.io/v1")
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 }
