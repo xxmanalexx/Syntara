@@ -37,7 +37,7 @@ export class ContentScoringService {
         message: "No media attached. Posts with images get significantly more engagement.",
         data: undefined,
       });
-      brandScore -= 20;
+      completenessScore -= 25;
     }
 
     // Caption length
@@ -122,7 +122,11 @@ export class ContentScoringService {
   async updateScores(draftId: string): Promise<void> {
     const draft = await prisma.draft.findUnique({
       where: { id: draftId },
-      include: { brand: true, mediaAssets: { include: { asset: true } } },
+      include: {
+        brand: true,
+        mediaAssets: { include: { asset: true } },
+        variants: { orderBy: { createdAt: "asc" }, take: 1 },
+      },
     });
     if (!draft) return;
 
