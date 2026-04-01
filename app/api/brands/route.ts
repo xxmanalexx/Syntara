@@ -8,10 +8,27 @@ const JWT_SECRET = new TextEncoder().encode(
 );
 
 export async function GET(req: Request) {
-  const token = req.headers.get("authorization")?.replace("Bearer ", "");
-  // For now, list all brands (add workspace filter later)
-  const brands = await prisma.brandProfile.findMany({ orderBy: { createdAt: "desc" } });
-  return NextResponse.json({ brands });
+  try {
+    const token = req.headers.get("authorization")?.replace("Bearer ", "");
+    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    let workspaceId: string;
+    try {
+      const { payload } = await jwtVerify(token, JWT_SECRET);
+      workspaceId = payload.workspaceId as string;
+    } catch {
+      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+    }
+
+    const brands = await prisma.brandProfile.findMany({
+      where: { workspaceId },
+      orderBy: { createdAt: "desc" },
+    });
+    return NextResponse.json({ brands });
+  } catch (err) {
+    console.error("Brand list error:", err);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 }
 
 export async function POST(req: Request) {

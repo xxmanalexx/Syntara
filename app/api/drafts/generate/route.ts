@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { jwtVerify } from "jose";
 import { prisma } from "@/lib/db";
 import { generateContentSchema } from "@/lib/validation";
 import { OllamaClient } from "@/lib/integrations/ollama/client";
@@ -6,23 +7,41 @@ import { OllamaContentService } from "@/lib/integrations/ollama/content-service"
 import { DraftService } from "@/lib/services/draft-service";
 import { ContentScoringService } from "@/lib/services/scoring-service";
 
+const JWT_SECRET = new TextEncoder().encode(
+  process.env["NEXTAUTH_SECRET"] ?? "dev-secret-change-in-production"
+);
+
 const draftService = new DraftService();
 const scoringService = new ContentScoringService();
 
-// Load workspace-level Ollama settings (or fall back to env vars)
 async function getOllamaConfig(workspaceId: string) {
   const settings = await prisma.workspaceSettings.findUnique({
     where: { workspaceId },
   });
   return {
     baseUrl: settings?.ollamaBaseUrl ?? process.env["OLLAMA_BASE_URL"] ?? "http://localhost:11434",
-    textModel: settings?.ollamaTextModel ?? process.env["OLLAMA_TEXT_MODEL"] ?? "llama3.2:latest",
+    textModel: settings?.ollamaTextModel ?? process.env["OLLAMA_TEXT_MODEL"] ?? "minimax-m2.7:cloud",
     embeddingsModel: settings?.ollamaEmbeddingsModel ?? process.env["OLLAMA_EMBEDDINGS_MODEL"] ?? "nomic-embed-text:latest",
   };
 }
 
 export async function POST(req: Request) {
   try {
+    // ── Auth ─────────────────────────────────────────────────────────────────
+    const token = req.headers.get("authorization")?.replace("Bearer ", "");
+    if (!token) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    let workspaceId: string;
+    try {
+      const { payload } = await jwtVerify(token, JWT_SECRET);
+      workspaceId = payload.workspaceId as string;
+    } catch {
+      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+    }
+
+    // ── Validate input ───────────────────────────────────────────────────────
     const body = await req.json();
     const parsed = generateContentSchema.safeParse(body);
     if (!parsed.success) {
@@ -31,19 +50,31 @@ export async function POST(req: Request) {
 
     const { brandId, contentType, sourceContent, tone } = parsed.data;
 
-    const brand = await prisma.brandProfile.findUnique({ where: { id: brandId } });
-    if (!brand) return NextResponse.json({ error: "Brand not found" }, { status: 404 });
+    // ── Verify brand belongs to this workspace ───────────────────────────────
+    const brand = await prisma.brandProfile.findFirst({
+      where: { id: brandId, workspaceId },
+    });
+    if (!brand) {
+      return NextResponse.json(
+        { error: "Brand not found in your workspace" },
+        { status: 404 }
+      );
+    }
 
-    // Load per-workspace Ollama config
-    const ollamaConfig = await getOllamaConfig(brand.workspaceId);
-    console.log(`[Generate] Using model: ${ollamaConfig.textModel} @ ${ollamaConfig.baseUrl}`);
+    // ── Load Ollama config ──────────────────────────────────────────────────
+    const ollamaConfig = await getOllamaConfig(workspaceId);
+    console.log(`[Generate] brand=${brand.name} model=${ollamaConfig.textModel}`);
 
     const ollamaClient = new OllamaClient(ollamaConfig.baseUrl);
-    const contentService = new OllamaContentService(ollamaClient, ollamaConfig.textModel, true);
+    const contentService = new OllamaContentService(
+      ollamaClient,
+      ollamaConfig.textModel,
+      true // disableThinking
+    );
 
-    // Create draft
+    // ── Generate content ────────────────────────────────────────────────────
     const draft = await draftService.create({
-      workspaceId: brand.workspaceId,
+      workspaceId,
       brandId,
       contentType,
       tone,
@@ -69,22 +100,25 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Unsupported content type" }, { status: 400 });
     }
 
-    // Normalize variants — some methods return {variants: [...]} others return flat object
+    // ── Save variants ────────────────────────────────────────────────────────
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const variants: any[] = result.variants ?? [result];
 
-    await draftService.saveGeneratedVariants(draft.id, variants.map((v) => ({
-      caption: v.caption,
-      hook: v.hook,
-      body: v.body,
-      cta: v.cta,
-      hashtags: v.hashtags,
-      slideTexts: v.slideTexts,
-      frameCopies: v.frameCopies,
-      visualPrompts: v.visualPrompts,
-    })));
+    await draftService.saveGeneratedVariants(
+      draft.id,
+      variants.map((v) => ({
+        caption: v.caption,
+        hook: v.hook,
+        body: v.body,
+        cta: v.cta,
+        hashtags: v.hashtags,
+        slideTexts: v.slideTexts,
+        frameCopies: v.frameCopies,
+        visualPrompts: v.visualPrompts,
+      }))
+    );
 
-    // Apply first variant to draft
+    // ── Apply first variant to draft ────────────────────────────────────────
     const first = variants[0];
     await draftService.update(draft.id, {
       caption: first.caption,
@@ -100,9 +134,9 @@ export async function POST(req: Request) {
       })),
     });
 
-    // Score the draft
-    const updatedDraft = await draftService.getById(draft.id);
+    // ── Score ───────────────────────────────────────────────────────────────
     await scoringService.updateScores(draft.id);
+    const updatedDraft = await draftService.getById(draft.id);
 
     return NextResponse.json({
       draft: updatedDraft,
@@ -110,7 +144,7 @@ export async function POST(req: Request) {
       imagePrompts: result.imagePrompts ?? [],
     });
   } catch (err: any) {
-    console.error("Content generation error:", err);
+    console.error("[Generate] Error:", err);
     return NextResponse.json({ error: err.message ?? "Generation failed" }, { status: 500 });
   }
 }
