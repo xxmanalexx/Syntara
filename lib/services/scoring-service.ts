@@ -29,7 +29,7 @@ export class ContentScoringService {
     const filledChecks = checks.filter(Boolean).length;
     completenessScore = Math.round((filledChecks / checks.length) * 100);
 
-    // Missing media
+    // Missing media — completeness penalty + no readiness bonus
     if (!draft.mediaAssets?.length && draft.status !== "PUBLISHED") {
       insights.push({
         insightType: "MISSING_MEDIA",
@@ -38,6 +38,9 @@ export class ContentScoringService {
         data: undefined,
       });
       completenessScore -= 25;
+    } else if ((draft.mediaAssets?.length ?? 0) > 0) {
+      // Media attached — readiness bonus
+      readinessScore += 20;
     }
 
     // Caption length
