@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { ContentType, TonePreset } from "@/types";
@@ -51,11 +51,21 @@ export default function CreatePage() {
   });
 
   // Load brands on mount
-  useState(() => {
-    fetch("/api/brands", { headers: { Authorization: `Bearer ${localStorage.getItem("syntara_token")}` } })
+  useEffect(() => {
+    const token = localStorage.getItem("syntara_token");
+    if (!token) return;
+    fetch("/api/brands", { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => r.json())
-      .then((d) => setBrands(d.brands ?? []));
-  });
+      .then((d) => {
+        const brandList = d.brands ?? [];
+        setBrands(brandList);
+        // Auto-select first brand if only one exists
+        if (brandList.length === 1) {
+          setForm((f) => ({ ...f, brandId: brandList[0].id }));
+        }
+      })
+      .catch(console.error);
+  }, []);
 
   async function handleGenerate() {
     setLoading(true);
@@ -107,8 +117,8 @@ export default function CreatePage() {
         <div className="mb-6 p-4 rounded-xl bg-red-50 text-red-600 text-sm border border-red-100">{error}</div>
       )}
 
-      {/* Step 1: Input */}
-      {step === 1 && (
+      {/* Form — only show when not loading */}
+      {!loading && step === 1 && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-6">
           {/* Brand */}
           <div>
@@ -238,17 +248,17 @@ export default function CreatePage() {
           </div>
 
           <button
-            onClick={() => setStep(2)}
-            disabled={!form.brandId || (!form.sourceContent && !form.url)}
+            onClick={handleGenerate}
+            disabled={!form.brandId || (!form.sourceContent && !form.url) || loading}
             className="w-full py-3 rounded-xl bg-violet-600 text-white font-semibold hover:bg-violet-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Generate Content →
+            {loading ? "Generating..." : "Generate Content →"}
           </button>
         </div>
       )}
 
-      {/* Step 2: Generating */}
-      {step === 2 && (
+      {/* Generating State */}
+      {loading && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-12 text-center">
           <div className="w-16 h-16 rounded-full bg-violet-100 flex items-center justify-center mx-auto mb-4">
             <Sparkles className="w-8 h-8 text-violet-600 animate-pulse" />
@@ -260,10 +270,6 @@ export default function CreatePage() {
             <span className="flex items-center gap-1">🏷️ Generating hashtags</span>
             <span className="flex items-center gap-1">🎨 Creating visual prompts</span>
           </div>
-          <button onClick={handleGenerate} disabled={loading}
-            className="mt-6 px-6 py-3 rounded-xl bg-violet-600 text-white font-semibold hover:bg-violet-700 transition disabled:opacity-50">
-            {loading ? "Generating..." : "Start Generation"}
-          </button>
         </div>
       )}
     </div>
