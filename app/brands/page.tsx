@@ -332,11 +332,27 @@ export default function BrandsPage() {
           </div>
 
           {/* Tag inputs */}
-          <TagInput
-            field="dialect"
-            label="Dialect (optional)"
-            placeholder="e.g. Khaliji, Levantine, Iraqi"
-          />
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">Dialect (optional)</label>
+            <select
+              value={form.dialect ?? ""}
+              onChange={(e) => setField("dialect", e.target.value)}
+              className="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-violet-500 outline-none text-sm bg-white"
+            >
+              <option value="">None</option>
+              <option value="Khaliji">Khaliji (Gulf — السعودية, UAE, Kuwait)</option>
+              <option value="Levantine">Levantine (شامي — Syria, Lebanon, Jordan, Palestine)</option>
+              <option value="Iraqi">Iraqi (عراقي)</option>
+              <option value="Egyptian">Egyptian (مصري)</option>
+              <option value="North African">North African (مغربي — Morocco, Algeria, Tunisia)</option>
+              <option value="Saudi">Saudi (سعودي)</option>
+              <option value="Emirati">Emirati (إماراتي)</option>
+              <option value="Kuwaiti">Kuwaiti (كويتي)</option>
+              <option value="Qatari">Qatari (قطري)</option>
+              <option value="Omani">Omani (عماني)</option>
+              <option value="Bahraini">Bahraini (بحريني)</option>
+            </select>
+          </div>
           <TagInput
             field="styleKeywords"
             label="Style Keywords"
