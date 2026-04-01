@@ -209,7 +209,7 @@ export default function SettingsPage() {
         </nav>
 
         {/* Content */}
-        <div className="flex-1 space-y-6">
+        <div className="flex-1 space-y-6 pb-12">
           {/* ── AI Settings ── */}
           {tab === "ai" && (
             <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-6">
