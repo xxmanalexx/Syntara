@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 import { prisma } from "@/lib/db";
-import { brandProfileSchema } from "@/lib/validation";
 
 const JWT_SECRET = new TextEncoder().encode(
   process.env["NEXTAUTH_SECRET"] ?? "dev-secret-change-in-production"
@@ -57,14 +56,29 @@ export async function PATCH(
     if (!existing) return NextResponse.json({ error: "Brand not found" }, { status: 404 });
 
     const body = await req.json();
-    const parsed = brandProfileSchema.safeParse({ ...body, workspaceId });
-    if (!parsed.success) {
-      return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+
+    // Build update object — only update fields that are explicitly provided
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const updateData: any = {};
+    const allowedFields = [
+      "name", "description", "audienceDesc", "voiceGuidance",
+      "styleKeywords", "bannedPhrases", "bannedClaims",
+      "ctaPreferences", "visualStyle", "colorReferences",
+      "referenceUrls", "negativePrompts",
+    ] as const;
+    for (const field of allowedFields) {
+      if (body[field] !== undefined) {
+        updateData[field] = body[field];
+      }
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json({ error: "No fields to update" }, { status: 400 });
     }
 
     const brand = await prisma.brandProfile.update({
       where: { id: params.id },
-      data: parsed.data,
+      data: updateData,
     });
     return NextResponse.json({ brand });
   } catch (err) {

@@ -133,7 +133,19 @@ export default function BrandsPage() {
         cancelEdit();
       } else {
         const data = await res.json();
-        setError(data.error?.message ?? data.error ?? "Save failed");
+        // Zod returns { error: { fieldErrors: { field: [messages] } } }
+        const err = data.error;
+        if (err && typeof err === "object" && !Array.isArray(err)) {
+          const fe = (err as Record<string, unknown>).fieldErrors;
+          if (fe && typeof fe === "object") {
+            const msgs = Object.values(fe as Record<string, unknown[]>).flat().join("; ");
+            setError(msgs || "Validation error");
+          } else {
+            setError("Validation failed. Check your fields.");
+          }
+        } else {
+          setError(typeof err === "string" ? err : "Save failed");
+        }
       }
     } catch {
       setError("Network error");
