@@ -332,7 +332,10 @@ export class OllamaContentService {
     source: string,
     tone: TonePreset,
   ): Promise<ReelResponse> {
-    const task = `Generate a complete Instagram Reel content plan for the brand "${brand.name}" about:\n\n"${source}"\n\nBrand identity:\n- ${brand.description ?? brand.name}\n- Tone: ${TONE_LABELS[tone] ?? tone}\n${brand.styleKeywords.length > 0 ? `- Style keywords: ${brand.styleKeywords.join(", ")}` : ""}\n${brand.bannedPhrases.length > 0 ? `- NEVER mention these: ${brand.bannedPhrases.join(", ")}` : ""}\n\nReturn a JSON object with:\n- hookDirections: 3 different hook options with direction, hookText, and whyItWorks\n- scriptOrTalkingPoints: Full script outline or key talking points\n- shotList: Array of individual shots/scene descriptions\n- visualStoryboard: Overall visual direction for the reel\n- caption: The post caption\n- cta: Call to action\n- thumbnailCoverConcept: Description of the thumbnail/cover idea\n\nReturn ONLY valid JSON. Do NOT mention any other brand or ingredient besides "${brand.name}".`;
+    const task = `Generate a complete Instagram Reel content plan for the brand "${brand.name}" about:\n\n"${source}"\n\nBrand identity:\n- ${brand.description ?? brand.name}\n- Tone: ${TONE_LABELS[tone] ?? tone}\n${brand.styleKeywords.length > 0 ? `- Style keywords: ${brand.styleKeywords.join(", ")}` : ""}\n${brand.bannedPhrases.length > 0 ? `- NEVER mention these: ${brand.bannedPhrases.join(", ")}` : ""}\n\n${brand.preferredLanguage ? `
+- Language: Write ALL content in the "${brand.preferredLanguage}" language only.` : ""}
+
+Return a JSON object with:\n- hookDirections: 3 different hook options with direction, hookText, and whyItWorks\n- scriptOrTalkingPoints: Full script outline or key talking points\n- shotList: Array of individual shots/scene descriptions\n- visualStoryboard: Overall visual direction for the reel\n- caption: The post caption\n- cta: Call to action\n- thumbnailCoverConcept: Description of the thumbnail/cover idea\n\nReturn ONLY valid JSON. Do NOT mention any other brand or ingredient besides "${brand.name}".`;
 
     const request: OllamaGenerateRequest = {
       model: this.textModel,
@@ -351,7 +354,10 @@ export class OllamaContentService {
     source: string,
     tone: TonePreset,
   ): Promise<StoryResponse> {
-    const task = `Generate a complete Instagram Story content plan for the brand "${brand.name}" about:\n\n"${source}"\n\nBrand identity:\n- ${brand.description ?? brand.name}\n- Tone: ${TONE_LABELS[tone] ?? tone}\n${brand.styleKeywords.length > 0 ? `- Style keywords: ${brand.styleKeywords.join(", ")}` : ""}\n${brand.bannedPhrases.length > 0 ? `- NEVER mention these: ${brand.bannedPhrases.join(", ")}` : ""}\n\nReturn a JSON object with:\n- conceptDirections: 3 different concept directions for the story\n- frameSequence: Array of 3-5 frames with frameNumber, concept, visualPrompt, optional stickerSuggestions\n- frameByFrameCopy: Copy for each frame with frameNumber, copy, and optional cta\n- stickerSuggestions: General sticker suggestions for the story\n- ctaProgression: How the CTA evolves across frames\n- visualPrompts: Image generation prompts for each frame\n\nReturn ONLY valid JSON. Do NOT mention any other brand or ingredient besides "${brand.name}".`;
+    const task = `Generate a complete Instagram Story content plan for the brand "${brand.name}" about:\n\n"${source}"\n\nBrand identity:\n- ${brand.description ?? brand.name}\n- Tone: ${TONE_LABELS[tone] ?? tone}\n${brand.styleKeywords.length > 0 ? `- Style keywords: ${brand.styleKeywords.join(", ")}` : ""}\n${brand.bannedPhrases.length > 0 ? `- NEVER mention these: ${brand.bannedPhrases.join(", ")}` : ""}\n\n${brand.preferredLanguage ? `
+- Language: Write ALL content in the "${brand.preferredLanguage}" language only.` : ""}
+
+Return a JSON object with:\n- conceptDirections: 3 different concept directions for the story\n- frameSequence: Array of 3-5 frames with frameNumber, concept, visualPrompt, optional stickerSuggestions\n- frameByFrameCopy: Copy for each frame with frameNumber, copy, and optional cta\n- stickerSuggestions: General sticker suggestions for the story\n- ctaProgression: How the CTA evolves across frames\n- visualPrompts: Image generation prompts for each frame\n\nReturn ONLY valid JSON. Do NOT mention any other brand or ingredient besides "${brand.name}".`;
 
     const request: OllamaGenerateRequest = {
       model: this.textModel,

@@ -431,19 +431,23 @@ export default function DraftEditorPage() {
                                   Copy prompt
                                 </button>
                                 <button
-                                  onClick={async () => {
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
                                     const url = window.prompt("Paste your generated image URL:", "");
-                                    if (url && url.startsWith("http")) {
-                                      setSaving(true);
-                                      const token = getToken();
-                                      await fetch(`/api/drafts/${draft.id}/media`, {
-                                        method: "POST",
-                                        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-                                        body: JSON.stringify({ imageUrl: url }),
-                                      });
+                                    if (!url || !url.startsWith("http")) return;
+                                    setSaving(true);
+                                    const token = getToken();
+                                    const res = await fetch(`/api/drafts/${draft.id}/media`, {
+                                      method: "POST",
+                                      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                                      body: JSON.stringify({ imageUrl: url }),
+                                    });
+                                    if (res.ok) {
                                       await loadDraft();
-                                      setSaving(false);
+                                    } else {
+                                      alert("Failed to attach image");
                                     }
+                                    setSaving(false);
                                   }}
                                   className="text-xs text-green-600 hover:text-green-700 font-medium"
                                 >

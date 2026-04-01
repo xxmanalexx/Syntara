@@ -28,6 +28,7 @@ export interface BrandProfile {
   bannedClaims: string[];
   ctaPreferences?: string;
   visualStyle?: string;
+  preferredLanguage?: string;
   colorReferences: string[];
   referenceUrls: string[];
   negativePrompts: string[];

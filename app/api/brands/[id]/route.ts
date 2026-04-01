@@ -63,7 +63,8 @@ export async function PATCH(
     const allowedFields = [
       "name", "description", "audienceDesc", "voiceGuidance",
       "styleKeywords", "bannedPhrases", "bannedClaims",
-      "ctaPreferences", "visualStyle", "colorReferences",
+      "ctaPreferences", "visualStyle",
+      "preferredLanguage", "colorReferences",
       "referenceUrls", "negativePrompts",
     ] as const;
     for (const field of allowedFields) {

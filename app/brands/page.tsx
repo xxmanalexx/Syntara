@@ -15,6 +15,7 @@ interface BrandProfile {
   bannedClaims: string[];
   ctaPreferences: string | null;
   visualStyle: string | null;
+  preferredLanguage: string;
   colorReferences: string[];
   referenceUrls: string[];
   negativePrompts: string[];
@@ -30,6 +31,7 @@ const DEFAULT_BRAND = (): Partial<BrandProfile> => ({
   bannedClaims: [],
   ctaPreferences: "",
   visualStyle: "",
+  preferredLanguage: "en",
   colorReferences: [],
   referenceUrls: [],
   negativePrompts: [],
@@ -304,6 +306,69 @@ export default function BrandsPage() {
                 className="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-violet-500 outline-none text-sm"
               />
             </div>
+          </div>
+
+          {/* Preferred Language */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">Preferred Language</label>
+            <select
+              value={form.preferredLanguage ?? "en"}
+              onChange={(e) => setField("preferredLanguage", e.target.value)}
+              className="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-violet-500 outline-none text-sm bg-white"
+            >
+              <option value="en">English</option>
+              <option value="ar">العربية (Arabic)</option>
+              <option value="fr">Français (French)</option>
+              <option value="de">Deutsch (German)</option>
+              <option value="es">Español (Spanish)</option>
+              <option value="pt">Português (Portuguese)</option>
+              <option value="zh">中文 (Chinese)</option>
+              <option value="ja">日本語 (Japanese)</option>
+              <option value="ko">한국어 (Korean)</option>
+              <option value="tr">Türkçe (Turkish)</option>
+            </select>
+          </div>
+
+          {/* Preferred Language */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">Preferred Language</label>
+            <select
+              value={form.preferredLanguage ?? "en"}
+              onChange={(e) => setField("preferredLanguage", e.target.value)}
+              className="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-violet-500 outline-none text-sm bg-white"
+            >
+              <option value="en">English</option>
+              <option value="ar">العربية (Arabic)</option>
+              <option value="fr">Français (French)</option>
+              <option value="de">Deutsch (German)</option>
+              <option value="es">Español (Spanish)</option>
+              <option value="pt">Português (Portuguese)</option>
+              <option value="zh">中文 (Chinese)</option>
+              <option value="ja">日本語 (Japanese)</option>
+              <option value="ko">한국어 (Korean)</option>
+              <option value="tr">Türkçe (Turkish)</option>
+            </select>
+          </div>
+
+          {/* Preferred Language */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">Preferred Language</label>
+            <select
+              value={form.preferredLanguage ?? "en"}
+              onChange={(e) => setField("preferredLanguage", e.target.value)}
+              className="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-violet-500 outline-none text-sm bg-white"
+            >
+              <option value="en">English</option>
+              <option value="ar">العربية (Arabic)</option>
+              <option value="fr">Français (French)</option>
+              <option value="de">Deutsch (German)</option>
+              <option value="es">Español (Spanish)</option>
+              <option value="pt">Português (Portuguese)</option>
+              <option value="zh">中文 (Chinese)</option>
+              <option value="ja">日本語 (Japanese)</option>
+              <option value="ko">한국어 (Korean)</option>
+              <option value="tr">Türkçe (Turkish)</option>
+            </select>
           </div>
 
           {/* Tag inputs */}

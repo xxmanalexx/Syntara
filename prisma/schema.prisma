@@ -148,7 +148,8 @@ model BrandProfile {
   bannedPhrases   String[]
   bannedClaims    String[]
   ctaPreferences  String?
-  visualStyle     String?
+  visualStyle       String?
+  preferredLanguage String   @default("en")
   colorReferences String[]
   referenceUrls   String[]
   negativePrompts String[]
