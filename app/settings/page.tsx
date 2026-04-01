@@ -49,22 +49,25 @@ export default function SettingsPage() {
     return localStorage.getItem("syntara_token") ?? "";
   };
 
-  const loadSettings = useCallback(async () => {
-    const token = getToken();
-    console.log("[Settings] Token found:", token ? "YES (" + token.slice(0, 15) + "...)" : "NO");
-
-    if (!token) {
-      setError("Not logged in. Please log in first.");
-      setLoading(false);
-      return;
+  const requireAuth = () => {
+    if (!getToken()) {
+      window.location.href = "/login";
+      return false;
     }
+    return true;
+  };
+
+  const loadSettings = useCallback(async () => {
+    if (!requireAuth()) return;
 
     setLoading(true);
     setError(null);
 
+    const token = getToken();
+
     try {
       // Load saved settings
-      console.log("[Settings] Fetching /api/settings...");
+      console.log("[Settings] Token found, fetching settings...");
       const res = await fetch("/api/settings", {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -114,11 +117,8 @@ export default function SettingsPage() {
   }, [loadSettings]);
 
   const handleSave = async () => {
+    if (!requireAuth()) return;
     const token = getToken();
-    if (!token) {
-      setError("Not logged in. Please log in first.");
-      return;
-    }
 
     setSaving(true);
     setError(null);
