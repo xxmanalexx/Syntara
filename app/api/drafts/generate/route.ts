@@ -118,7 +118,7 @@ export async function POST(req: Request) {
         hashtags: v.hashtags,
         slideTexts: v.slideTexts,
         frameCopies: v.frameCopies,
-        visualPrompts: v.visualPrompts,
+        visualPrompts: v.visualPrompts ?? v.visualConceptPrompts ?? [],
       }))
     );
 

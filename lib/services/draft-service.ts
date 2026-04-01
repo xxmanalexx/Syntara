@@ -104,15 +104,31 @@ export class DraftService {
   }
 
   async saveGeneratedVariants(draftId: string, variants: ContentVariantData[]): Promise<DraftVariant[]> {
-    const created = await prisma.draftVariant.createManyAndReturn({
-      data: variants.map((v, i) => ({
-        draftId,
-        name: String.fromCharCode(65 + i),
-        isSelected: i === 0,
-        data: v as unknown as JsonObject,
-      })),
-    });
-    return created as unknown as DraftVariant[];
+    // Insert variants one at a time to avoid createManyAndReturn field-mapping issues
+    const created: DraftVariant[] = [];
+    for (let i = 0; i < variants.length; i++) {
+      const v = variants[i];
+      const variant = await prisma.draftVariant.create({
+        data: {
+          draftId,
+          name: String.fromCharCode(65 + i),
+          isSelected: i === 0,
+          data: {
+            caption: v.caption ?? null,
+            hook: v.hook ?? null,
+            body: v.body ?? null,
+            cta: v.cta ?? null,
+            hashtags: Array.isArray(v.hashtags) ? v.hashtags : [],
+            slideTexts: Array.isArray(v.slideTexts) ? v.slideTexts : [],
+            frameCopies: Array.isArray(v.frameCopies) ? v.frameCopies : [],
+            visualPrompts: Array.isArray(v.visualPrompts) ? v.visualPrompts : [],
+            visualConceptPrompts: Array.isArray(v.visualPrompts) ? v.visualPrompts : [],
+          },
+        },
+      });
+      created.push(variant as unknown as DraftVariant);
+    }
+    return created;
   }
 
   async addSection(draftId: string, sectionType: string, content: string, sortOrder: number, promptUsed?: string) {
