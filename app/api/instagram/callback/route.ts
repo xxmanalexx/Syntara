@@ -21,6 +21,7 @@ export async function GET(req: Request) {
       appId: process.env.META_APP_ID ?? "",
       appSecret: process.env.META_APP_SECRET ?? "",
       redirectUri: process.env.META_REDIRECT_URI ?? "",
+      clientToken: process.env.META_CLIENT_TOKEN,
     });
 
     const tokenRes = await authService.exchangeToken(code);

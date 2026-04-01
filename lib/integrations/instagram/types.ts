@@ -5,6 +5,7 @@ export interface InstagramOAuthConfig {
   appId: string;
   appSecret: string;
   redirectUri: string;
+  clientToken?: string;
 }
 
 export interface InstagramTokenResponse {

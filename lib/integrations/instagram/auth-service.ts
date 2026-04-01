@@ -31,6 +31,10 @@ export class InstagramAuthService {
       response_type: "code",
     });
 
+    if (this.config.clientToken) {
+      params.set("client_token", this.config.clientToken);
+    }
+
     if (state) {
       params.set("state", state);
     }
