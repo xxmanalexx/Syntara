@@ -134,7 +134,7 @@ async function fetchWithRetry<T>(
 export class OllamaClient {
   constructor(
     private readonly baseUrl: string = OLLAMA_BASE_URL,
-    private readonly defaultTimeoutMs: number = 30_000,
+    private readonly defaultTimeoutMs: number = 120_000,
   ) {}
 
   private get baseHeaders(): HeadersInit {
