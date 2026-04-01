@@ -6,10 +6,20 @@ import { OllamaContentService } from "@/lib/integrations/ollama/content-service"
 import { DraftService } from "@/lib/services/draft-service";
 import { ContentScoringService } from "@/lib/services/scoring-service";
 
-const ollamaClient = new OllamaClient();
-const contentService = new OllamaContentService(ollamaClient);
 const draftService = new DraftService();
 const scoringService = new ContentScoringService();
+
+// Load workspace-level Ollama settings (or fall back to env vars)
+async function getOllamaConfig(workspaceId: string) {
+  const settings = await prisma.workspaceSettings.findUnique({
+    where: { workspaceId },
+  });
+  return {
+    baseUrl: settings?.ollamaBaseUrl ?? process.env["OLLAMA_BASE_URL"] ?? "http://localhost:11434",
+    textModel: settings?.ollamaTextModel ?? process.env["OLLAMA_TEXT_MODEL"] ?? "llama3.2:latest",
+    embeddingsModel: settings?.ollamaEmbeddingsModel ?? process.env["OLLAMA_EMBEDDINGS_MODEL"] ?? "nomic-embed-text:latest",
+  };
+}
 
 export async function POST(req: Request) {
   try {
@@ -24,6 +34,13 @@ export async function POST(req: Request) {
     const brand = await prisma.brandProfile.findUnique({ where: { id: brandId } });
     if (!brand) return NextResponse.json({ error: "Brand not found" }, { status: 404 });
 
+    // Load per-workspace Ollama config
+    const ollamaConfig = await getOllamaConfig(brand.workspaceId);
+    console.log(`[Generate] Using model: ${ollamaConfig.textModel} @ ${ollamaConfig.baseUrl}`);
+
+    const ollamaClient = new OllamaClient(ollamaConfig.baseUrl);
+    const contentService = new OllamaContentService(ollamaClient, ollamaConfig.textModel);
+
     // Create draft
     const draft = await draftService.create({
       workspaceId: brand.workspaceId,
@@ -32,7 +49,6 @@ export async function POST(req: Request) {
       tone,
     });
 
-    // Generate content based on type — result is typed per-method, cast to any for safety
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let result: any;
 
