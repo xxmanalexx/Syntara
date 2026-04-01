@@ -29,6 +29,7 @@ export interface BrandProfile {
   ctaPreferences?: string;
   visualStyle?: string;
   preferredLanguage?: string;
+  dialect?: string;
   colorReferences: string[];
   referenceUrls: string[];
   negativePrompts: string[];

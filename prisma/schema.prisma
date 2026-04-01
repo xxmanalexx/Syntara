@@ -150,6 +150,7 @@ model BrandProfile {
   ctaPreferences  String?
   visualStyle       String?
   preferredLanguage String   @default("en")
+  dialect           String?
   colorReferences String[]
   referenceUrls   String[]
   negativePrompts String[]

@@ -285,7 +285,17 @@ export class OllamaContentService {
 
   // ─── 1. Feed Post Variants ─────────────────────────────────────────────────
 
-  async generateFeedPostVariants(
+    private langLine(brand: BrandProfile): string {
+    const lang = brand.preferredLanguage
+      ? (`Language: Write ALL content in the "${brand.preferredLanguage}" language`)
+      : null;
+    const dial = brand.dialect ? (`Dialect register: "${brand.dialect}"`) : null;
+    if (!lang && !dial) return "";
+    const parts = [lang, dial].filter(Boolean).join("; ") + ".";
+    return `\n- ${parts}`;
+  }
+
+async generateFeedPostVariants(
     brand: BrandProfile,
     source: string,
     tone: TonePreset,
@@ -294,7 +304,7 @@ export class OllamaContentService {
     // IMPORTANT: embed brand name and key brand identity directly in the
     // prompt field so the model sees it as primary context, not just in
     // the system prompt where it can be deprioritized.
-    const task = `Generate ${count} distinct Instagram feed post caption variants for the brand "${brand.name}" about the following topic:\n\n"${source}"\n\nBrand identity to strictly follow:\n- Products/ingredients: ${brand.description ?? brand.name}\n- Tone: ${TONE_LABELS[tone] ?? tone}\n${brand.styleKeywords.length > 0 ? `- Style keywords: ${brand.styleKeywords.join(", ")}` : ""}\n${brand.bannedPhrases.length > 0 ? `- NEVER mention these: ${brand.bannedPhrases.join(", ")}` : ""}\n\nEach variant must include:\n- caption: The full Instagram caption (can include line breaks)\n- hook: The opening hook line (1-2 sentences)\n- body: The main body copy after the hook\n- cta: A call-to-action\n- hashtags: 5-15 relevant hashtags\n- altTextSuggestion: Accessibility alt text for the image\n- visualConceptPrompts: Array of exactly 3 detailed image generation prompts\n\nReturn a JSON object with a "variants" array containing ${count} variant objects. Do NOT mention any other brand or ingredient besides "${brand.name}".`;
+    const task = `Generate ${count} distinct Instagram feed post caption variants for the brand "${brand.name}" about the following topic:\n\n"${source}"\n\nBrand identity to strictly follow:\n- Products/ingredients: ${brand.description ?? brand.name}\n- Tone: ${TONE_LABELS[tone] ?? tone}\n${brand.styleKeywords.length > 0 ? `- Style keywords: ${brand.styleKeywords.join(", ")}` : ""}\n${brand.bannedPhrases.length > 0 ? `- NEVER mention these: ${brand.bannedPhrases.join(", ")}` : ""}\n\n${this.langLine(brand)}\n\nEach variant must include:\n- caption: The full Instagram caption (can include line breaks)\n- hook: The opening hook line (1-2 sentences)\n- body: The main body copy after the hook\n- cta: A call-to-action\n- hashtags: 5-15 relevant hashtags\n- altTextSuggestion: Accessibility alt text for the image\n- visualConceptPrompts: Array of exactly 3 detailed image generation prompts\n\nReturn a JSON object with a "variants" array containing ${count} variant objects. Do NOT mention any other brand or ingredient besides "${brand.name}".`;
 
     const request: OllamaGenerateRequest = {
       model: this.textModel,
@@ -313,7 +323,7 @@ export class OllamaContentService {
     source: string,
     tone: TonePreset,
   ): Promise<CarouselResponse> {
-    const task = `Generate a complete Instagram carousel content plan for the brand "${brand.name}" about:\n\n"${source}"\n\nBrand identity:\n- ${brand.description ?? brand.name}\n- Tone: ${TONE_LABELS[tone] ?? tone}\n${brand.styleKeywords.length > 0 ? `- Style keywords: ${brand.styleKeywords.join(", ")}` : ""}\n${brand.bannedPhrases.length > 0 ? `- NEVER mention these: ${brand.bannedPhrases.join(", ")}` : ""}\n\nThe carousel should have 5-10 slides. Return a JSON object with:\n- conceptDirections: 3 different concept directions for the carousel\n- coverHook: The hook text for the cover/first slide\n- slideStructure: Array of slides with slideNumber, heading, and optional subtext\n- slideCopy: Copy for each slide with slideNumber, copy text, and visualPrompt\n- caption: The post caption\n- cta: Call to action\n- visualPrompts: Image generation prompts for each slide\n- coverImageConcept: Description of the cover image concept\n\nReturn ONLY valid JSON. Do NOT mention any other brand or ingredient besides "${brand.name}".`;
+    const task = `Generate a complete Instagram carousel content plan for the brand "${brand.name}" about:\n\n"${source}"\n\nBrand identity:\n- ${brand.description ?? brand.name}\n- Tone: ${TONE_LABELS[tone] ?? tone}\n${brand.styleKeywords.length > 0 ? `- Style keywords: ${brand.styleKeywords.join(", ")}` : ""}\n${brand.bannedPhrases.length > 0 ? `- NEVER mention these: ${brand.bannedPhrases.join(", ")}` : ""}\n\n${this.langLine(brand)}\n\nThe carousel should have 5-10 slides. Return a JSON object with:\n- conceptDirections: 3 different concept directions for the carousel\n- coverHook: The hook text for the cover/first slide\n- slideStructure: Array of slides with slideNumber, heading, and optional subtext\n- slideCopy: Copy for each slide with slideNumber, copy text, and visualPrompt\n- caption: The post caption\n- cta: Call to action\n- visualPrompts: Image generation prompts for each slide\n- coverImageConcept: Description of the cover image concept\n\nReturn ONLY valid JSON. Do NOT mention any other brand or ingredient besides "${brand.name}".`;
 
     const request: OllamaGenerateRequest = {
       model: this.textModel,
@@ -332,8 +342,7 @@ export class OllamaContentService {
     source: string,
     tone: TonePreset,
   ): Promise<ReelResponse> {
-    const task = `Generate a complete Instagram Reel content plan for the brand "${brand.name}" about:\n\n"${source}"\n\nBrand identity:\n- ${brand.description ?? brand.name}\n- Tone: ${TONE_LABELS[tone] ?? tone}\n${brand.styleKeywords.length > 0 ? `- Style keywords: ${brand.styleKeywords.join(", ")}` : ""}\n${brand.bannedPhrases.length > 0 ? `- NEVER mention these: ${brand.bannedPhrases.join(", ")}` : ""}\n\n${brand.preferredLanguage ? `
-- Language: Write ALL content in the "${brand.preferredLanguage}" language only.` : ""}
+    const task = `Generate a complete Instagram Reel content plan for the brand "${brand.name}" about:\n\n"${source}"\n\nBrand identity:\n- ${brand.description ?? brand.name}\n- Tone: ${TONE_LABELS[tone] ?? tone}\n${brand.styleKeywords.length > 0 ? `- Style keywords: ${brand.styleKeywords.join(", ")}` : ""}\n${brand.bannedPhrases.length > 0 ? `- NEVER mention these: ${brand.bannedPhrases.join(", ")}` : ""}\n\n${this.langLine(brand)}
 
 Return a JSON object with:\n- hookDirections: 3 different hook options with direction, hookText, and whyItWorks\n- scriptOrTalkingPoints: Full script outline or key talking points\n- shotList: Array of individual shots/scene descriptions\n- visualStoryboard: Overall visual direction for the reel\n- caption: The post caption\n- cta: Call to action\n- thumbnailCoverConcept: Description of the thumbnail/cover idea\n\nReturn ONLY valid JSON. Do NOT mention any other brand or ingredient besides "${brand.name}".`;
 
@@ -354,8 +363,7 @@ Return a JSON object with:\n- hookDirections: 3 different hook options with dire
     source: string,
     tone: TonePreset,
   ): Promise<StoryResponse> {
-    const task = `Generate a complete Instagram Story content plan for the brand "${brand.name}" about:\n\n"${source}"\n\nBrand identity:\n- ${brand.description ?? brand.name}\n- Tone: ${TONE_LABELS[tone] ?? tone}\n${brand.styleKeywords.length > 0 ? `- Style keywords: ${brand.styleKeywords.join(", ")}` : ""}\n${brand.bannedPhrases.length > 0 ? `- NEVER mention these: ${brand.bannedPhrases.join(", ")}` : ""}\n\n${brand.preferredLanguage ? `
-- Language: Write ALL content in the "${brand.preferredLanguage}" language only.` : ""}
+    const task = `Generate a complete Instagram Story content plan for the brand "${brand.name}" about:\n\n"${source}"\n\nBrand identity:\n- ${brand.description ?? brand.name}\n- Tone: ${TONE_LABELS[tone] ?? tone}\n${brand.styleKeywords.length > 0 ? `- Style keywords: ${brand.styleKeywords.join(", ")}` : ""}\n${brand.bannedPhrases.length > 0 ? `- NEVER mention these: ${brand.bannedPhrases.join(", ")}` : ""}\n\n${this.langLine(brand)}
 
 Return a JSON object with:\n- conceptDirections: 3 different concept directions for the story\n- frameSequence: Array of 3-5 frames with frameNumber, concept, visualPrompt, optional stickerSuggestions\n- frameByFrameCopy: Copy for each frame with frameNumber, copy, and optional cta\n- stickerSuggestions: General sticker suggestions for the story\n- ctaProgression: How the CTA evolves across frames\n- visualPrompts: Image generation prompts for each frame\n\nReturn ONLY valid JSON. Do NOT mention any other brand or ingredient besides "${brand.name}".`;
 

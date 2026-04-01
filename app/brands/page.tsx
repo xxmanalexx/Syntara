@@ -14,8 +14,9 @@ interface BrandProfile {
   bannedPhrases: string[];
   bannedClaims: string[];
   ctaPreferences: string | null;
-  visualStyle: string | null;
   preferredLanguage: string;
+  dialect: string;
+  visualStyle: string | null;
   colorReferences: string[];
   referenceUrls: string[];
   negativePrompts: string[];
@@ -32,6 +33,7 @@ const DEFAULT_BRAND = (): Partial<BrandProfile> => ({
   ctaPreferences: "",
   visualStyle: "",
   preferredLanguage: "en",
+  dialect: "",
   colorReferences: [],
   referenceUrls: [],
   negativePrompts: [],
@@ -330,6 +332,11 @@ export default function BrandsPage() {
           </div>
 
           {/* Tag inputs */}
+          <TagInput
+            field="dialect"
+            label="Dialect (optional)"
+            placeholder="e.g. Khaliji, Levantine, Iraqi"
+          />
           <TagInput
             field="styleKeywords"
             label="Style Keywords"
