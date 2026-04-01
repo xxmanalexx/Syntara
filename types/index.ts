@@ -271,6 +271,8 @@ export interface OllamaGenerateRequest {
   format?: "json" | "";
   options?: Record<string, unknown>;
   stream?: boolean;
+  /** Set to true to disable chain-of-thought reasoning on thinking models (e.g. nemotron). */
+  disableThinking?: boolean;
 }
 
 export interface OllamaGenerateResponse {

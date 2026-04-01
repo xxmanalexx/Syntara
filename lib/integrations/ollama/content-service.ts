@@ -241,6 +241,7 @@ export class OllamaContentService {
   constructor(
     private readonly client: OllamaClient,
     private readonly textModel: string = process.env["OLLAMA_TEXT_MODEL"] ?? "llama3.2:latest",
+    private readonly disableThinking = true,
   ) {}
 
   // ─── 1. Feed Post Variants ─────────────────────────────────────────────────
@@ -261,6 +262,7 @@ export class OllamaContentService {
       model: this.textModel,
       prompt: source,
       system: systemPrompt,
+        disableThinking: this.disableThinking,
       format: "json",
     };
 
@@ -284,6 +286,7 @@ export class OllamaContentService {
       model: this.textModel,
       prompt: source,
       system: systemPrompt,
+        disableThinking: this.disableThinking,
       format: "json",
     };
 
@@ -307,6 +310,7 @@ export class OllamaContentService {
       model: this.textModel,
       prompt: source,
       system: systemPrompt,
+        disableThinking: this.disableThinking,
       format: "json",
     };
 
@@ -330,6 +334,7 @@ export class OllamaContentService {
       model: this.textModel,
       prompt: source,
       system: systemPrompt,
+        disableThinking: this.disableThinking,
       format: "json",
     };
 
@@ -356,6 +361,7 @@ export class OllamaContentService {
       model: this.textModel,
       prompt: instruction,
       system: systemPrompt,
+        disableThinking: this.disableThinking,
       format: "json",
     };
 
@@ -368,6 +374,7 @@ export class OllamaContentService {
     const request: OllamaGenerateRequest = {
       model: this.textModel,
       prompt: `Based on the following Instagram caption, generate ${count} relevant hashtags grouped by category:\n\n"${caption}"\n\nReturn a JSON object with:\n- hashtags: Array of ${count} hashtag strings (including the # symbol)\n- categories: Optional record of category names to arrays of hashtag strings\n\nReturn ONLY valid JSON.`,
+        disableThinking: this.disableThinking,
       format: "json",
     };
 
@@ -380,6 +387,7 @@ export class OllamaContentService {
     const request: OllamaGenerateRequest = {
       model: this.textModel,
       prompt: `Analyze the following Instagram analytics data and provide a concise, actionable summary:\n\n${analyticsText}\n\nReturn a JSON object with:\n- summary: A 2-3 sentence overview of overall performance\n- keyHighlights: Array of 3-5 bullet point key findings\n- recommendedActions: Array of recommended next steps (optional)\n- topPerformingFormat: The content format with highest engagement (optional)\n- topPerformingHookType: The hook type/style that performed best (optional)\n\nReturn ONLY valid JSON.`,
+        disableThinking: this.disableThinking,
       format: "json",
     };
 
@@ -398,6 +406,7 @@ export class OllamaContentService {
     const request: OllamaGenerateRequest = {
       model: this.textModel,
       prompt: `Analyze the following Instagram post hooks and their engagement metrics. Identify patterns, what works, and provide recommendations:\n\n${formatted}\n\nReturn a JSON object with:\n- analysis: A paragraph summarizing the overall hook effectiveness\n- patterns: Array of pattern objects with pattern name, count, avgEngagement, and exampleHooks\n- recommendations: Array of actionable recommendations for improving hooks\n- bestHooks: Array of the top 3 best-performing hooks\n\nReturn ONLY valid JSON.`,
+        disableThinking: this.disableThinking,
       format: "json",
     };
 

@@ -134,7 +134,7 @@ async function fetchWithRetry<T>(
 export class OllamaClient {
   constructor(
     private readonly baseUrl: string = OLLAMA_BASE_URL,
-    private readonly defaultTimeoutMs: number = 120_000,
+    private readonly defaultTimeoutMs: number = 300_000,
   ) {}
 
   private get baseHeaders(): HeadersInit {
@@ -195,12 +195,16 @@ export class OllamaClient {
    * Raw text generation. Stream=false by default.
    */
   async generate(opts: OllamaGenerateRequest): Promise<OllamaGenerateResponse> {
+    const body: Record<string, unknown> = { stream: false, ...opts };
+    if (opts.disableThinking) {
+      body.think = false;
+    }
     const response = await fetchWithRetry<OllamaGenerateResponse>(
       `${this.baseUrl}/api/generate`,
       {
         method: "POST",
         headers: this.baseHeaders,
-        body: JSON.stringify({ stream: false, ...opts }),
+        body: JSON.stringify(body),
         timeoutMs: this.defaultTimeoutMs,
       },
     );

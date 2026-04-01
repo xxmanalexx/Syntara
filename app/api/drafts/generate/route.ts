@@ -39,7 +39,7 @@ export async function POST(req: Request) {
     console.log(`[Generate] Using model: ${ollamaConfig.textModel} @ ${ollamaConfig.baseUrl}`);
 
     const ollamaClient = new OllamaClient(ollamaConfig.baseUrl);
-    const contentService = new OllamaContentService(ollamaClient, ollamaConfig.textModel);
+    const contentService = new OllamaContentService(ollamaClient, ollamaConfig.textModel, true);
 
     // Create draft
     const draft = await draftService.create({
