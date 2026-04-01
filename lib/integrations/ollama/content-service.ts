@@ -185,7 +185,7 @@ const SECTION_TYPE_LABELS: Record<SectionType, string> = {
 function buildSystemPrompt(brand: BrandProfile, tone: TonePreset, task: string): string {
   const parts: string[] = [
     "You are an expert Instagram content strategist and copywriter.",
-    `You are creating content for the brand: **${brand.name}**.`,
+    `You are creating content EXCLUSIVELY for the brand: **${brand.name}**.`,
   ];
 
   if (brand.description) parts.push(`Brand description: ${brand.description}`);
@@ -225,6 +225,15 @@ function buildSystemPrompt(brand: BrandProfile, tone: TonePreset, task: string):
       `Visual negative prompts (avoid these in generated images): ${brand.negativePrompts.join(", ")}.`,
     );
   }
+
+  // STRICT brand focus enforcement
+  parts.push(
+    `\n⚠️ CRITICAL BRAND FOCUS RULE:`,
+    `Every piece of content you generate must be about **${brand.name}** — its products, ingredients, results, or values.`,
+    `Do NOT mention unrelated ingredients, products, or topics.`,
+    `If the source content mentions a different topic, weave it through the lens of ${brand.name} only.`,
+    `The final content must feel like it was written by ${brand.name}'s own social media team.`,
+  );
 
   parts.push(`\n${task}`);
 

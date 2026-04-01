@@ -18,6 +18,7 @@ import {
 const NAV = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/create", icon: PlusCircle, label: "Create" },
+  { href: "/brands", icon: FileText, label: "Brands" },
   { href: "/drafts", icon: FileText, label: "Drafts" },
   { href: "/calendar", icon: Calendar, label: "Calendar" },
   { href: "/analytics", icon: BarChart3, label: "Analytics" },
