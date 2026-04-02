@@ -2,7 +2,19 @@ import { NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 import { prisma } from "@/lib/db";
 import { InstagramPublishingService } from "@/lib/integrations/instagram/publishing-service";
+import { AnalyticsSyncService } from "@/lib/services/analytics-service";
 import { uploadToCloudinary } from "@/lib/integrations/cloudinary-upload";
+import { readFile } from "fs/promises";
+import path from "path";
+
+const MIME_MAP: Record<string, string> = {
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".png": "image/png",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+  ".svg": "image/svg+xml",
+};
 
 const JWT_SECRET = new TextEncoder().encode(
   process.env.NEXTAUTH_SECRET ?? "dev-secret-change-in-production"
@@ -41,7 +53,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     return NextResponse.json({ error: "Draft not found" }, { status: 404 });
   }
 
-  // Get the user's connected Instagram account — siliconvalleyhub has the valid token
+  // Get the user's connected Instagram account — find by userId directly
   const account = await prisma.socialAccount.findFirst({
     where: {
       userId,
@@ -86,11 +98,20 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const isLocalUpload = imageUrl.startsWith("/media/") || imageUrl.includes("localhost");
   if (isLocalUpload) {
     try {
-      publicImageUrl = await uploadToCloudinary({ type: "url", url: imageUrl });
+      // Read local file and send as binary blob to Cloudinary
+      const filePath = imageUrl.startsWith("/")
+        ? path.join(process.cwd(), "public", imageUrl.replace("/media/", "media/"))
+        : imageUrl;
+      const fileContent = await readFile(filePath);
+      const filename = path.basename(filePath);
+      const mimeType = MIME_MAP[path.extname(filePath).toLowerCase()] ?? "image/jpeg";
+      const blob = new Blob([fileContent], { type: mimeType });
+      const file = new File([blob], filename, { type: mimeType });
+      publicImageUrl = await uploadToCloudinary({ type: "file", file });
     } catch (err: any) {
       return NextResponse.json(
         {
-          error: `Local images need to be uploaded to a public CDN first. Cloudinary error: ${err?.message ?? "not configured"}`,
+          error: `Failed to upload local image to CDN. Make sure the file exists and Cloudinary is configured. Error: ${err?.message ?? "unknown"}`,
         },
         { status: 400 }
       );
@@ -125,6 +146,15 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       where: { id: draftId },
       data: { status: "PUBLISHED" },
     });
+
+    // Sync analytics for this account so dashboard metrics update
+    try {
+      const syncService = new AnalyticsSyncService(account.accessToken, igUserId);
+      await syncService.syncRecentMedia(account.workspaceId, account.id, 10);
+    } catch (syncErr) {
+      // Non-fatal: analytics sync should not block publish success
+      console.error("Analytics sync failed (non-fatal):", syncErr);
+    }
 
     return NextResponse.json({
       success: true,

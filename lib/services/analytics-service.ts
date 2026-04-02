@@ -2,6 +2,8 @@ import { prisma } from "@/lib/db";
 import type { AnalyticsSummary, AnalyticsSnapshot } from "@/types";
 import type { ContentType } from "@/types";
 
+const IG_GRAPH_BASE = "https://graph.facebook.com/v21.0";
+
 export class AnalyticsSyncService {
   private accessToken: string;
   private igUserId: string;
@@ -11,14 +13,20 @@ export class AnalyticsSyncService {
     this.igUserId = igUserId;
   }
 
+  /**
+   * Sync recent media from Instagram → local AnalyticsSnapshot table.
+   * Uses upsert so re-running is safe (won't create duplicates).
+   */
   async syncRecentMedia(
     workspaceId: string,
     socialAccountId: string,
     limit = 25
   ): Promise<AnalyticsSnapshot[]> {
-    const baseUrl = `https://graph.facebook.com/v21.0/${this.igUserId}/media`;
+    // Fetch basic media data (likes + comments are on this endpoint)
+    const baseUrl = `${IG_GRAPH_BASE}/${this.igUserId}/media`;
     const params = new URLSearchParams({
-      fields: "id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count,reach,impressions",
+      fields:
+        "id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count",
       limit: String(limit),
     });
 
@@ -31,12 +39,8 @@ export class AnalyticsSyncService {
     const media = data.data ?? [];
 
     const snapshots: AnalyticsSnapshot[] = [];
-    for (const item of media) {
-      const existing = await prisma.analyticsSnapshot.findUnique({
-        where: { instagramMediaId: item.id },
-      });
-      if (existing) continue;
 
+    for (const item of media) {
       const postType: ContentType =
         item.media_type === "VIDEO"
           ? "REEL"
@@ -44,22 +48,58 @@ export class AnalyticsSyncService {
           ? "CAROUSEL"
           : "FEED_POST";
 
-      const snapshot = await prisma.analyticsSnapshot.create({
-        data: {
-          socialAccountId,
-          workspaceId,
-          instagramMediaId: item.id,
-          igShortCode: item.id,
-          postUrl: item.permalink ?? null,
-          postType,
-          caption: item.caption ?? null,
-          publishedAt: new Date(item.timestamp),
-          likesCount: item.like_count ?? 0,
-          commentsCount: item.comments_count ?? 0,
-          impressions: item.impressions ?? null,
-          reach: item.reach ?? null,
-        },
+      const likesCount = item.like_count ?? 0;
+      const commentsCount = item.comments_count ?? 0;
+
+      // Build base snapshot data
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const snapshotData: any = {
+        socialAccountId,
+        workspaceId,
+        instagramMediaId: item.id,
+        igShortCode: item.id,
+        postUrl: item.permalink ?? null,
+        postType,
+        caption: item.caption ?? null,
+        publishedAt: new Date(item.timestamp),
+        likesCount,
+        commentsCount,
+      };
+
+      // Try to fetch reach from insights (available for ~14 days post-publish)
+      try {
+        const insightsRes = await fetch(
+          `${IG_GRAPH_BASE}/${item.id}/insights?metric=reach&access_token=${encodeURIComponent(this.accessToken)}`
+        );
+        if (insightsRes.ok) {
+          const insightsData =
+            (await insightsRes.json()) as InsightsResponse;
+          const reachMetric = insightsData.data?.find(
+            (m) => m.name === "reach"
+          );
+          if (reachMetric && reachMetric.values[0]?.value > 0) {
+            snapshotData.reach = reachMetric.values[0].value;
+          }
+        }
+      } catch {
+        // Non-critical — skip reach data
+      }
+
+      // Upsert so we don't duplicate existing records
+      const snapshot = await prisma.analyticsSnapshot.upsert({
+        where: { instagramMediaId: item.id },
+        create: snapshotData,
+        update: { likesCount, commentsCount },
       });
+
+      // If we got a reach value from insights, update the record
+      if (snapshotData.reach !== undefined) {
+        await prisma.analyticsSnapshot.update({
+          where: { id: snapshot.id },
+          data: { reach: snapshotData.reach },
+        });
+        snapshot.reach = snapshotData.reach;
+      }
 
       snapshots.push({
         id: snapshot.id,
@@ -109,13 +149,20 @@ export class AnalyticsSyncService {
     }
 
     const totalLikes = dbSnapshots.reduce((sum, s) => sum + s.likesCount, 0);
-    const totalComments = dbSnapshots.reduce((sum, s) => sum + s.commentsCount, 0);
-    const totalSaves = dbSnapshots.reduce((sum, s) => sum + s.savesCount, 0);
+    const totalComments = dbSnapshots.reduce(
+      (sum, s) => sum + s.commentsCount,
+      0
+    );
+    const totalSaves = dbSnapshots.reduce(
+      (sum, s) => sum + s.savesCount,
+      0
+    );
+    const totalInteractions =
+      totalLikes + totalComments + totalSaves;
     const avgEngagement =
-      dbSnapshots.reduce(
-        (sum, s) => sum + s.likesCount + s.commentsCount + s.savesCount,
-        0
-      ) / dbSnapshots.length;
+      dbSnapshots.length > 0
+        ? (totalInteractions / dbSnapshots.length)
+        : 0;
 
     const topPosts = [...dbSnapshots]
       .sort(
@@ -181,6 +228,8 @@ interface IGMediaItem {
   timestamp: string;
   like_count?: number;
   comments_count?: number;
-  impressions?: number;
-  reach?: number;
+}
+
+interface InsightsResponse {
+  data?: { name: string; values: { value: number }[] }[];
 }

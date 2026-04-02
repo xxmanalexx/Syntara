@@ -6,116 +6,127 @@ const JWT_SECRET = new TextEncoder().encode(
   process.env.NEXTAUTH_SECRET ?? "dev-secret-change-in-production"
 );
 
-async function getWorkspaceId(req: Request): Promise<string | null> {
+async function getUserFromToken(req: Request) {
   const token = req.headers.get("authorization")?.replace("Bearer ", "");
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, JWT_SECRET);
-    return payload.workspaceId as string;
+    return payload as { sub: string; workspaceId?: string };
   } catch {
     return null;
   }
 }
 
 export async function GET(req: Request) {
-  const workspaceId = await getWorkspaceId(req);
-  if (!workspaceId) {
+  const payload = await getUserFromToken(req);
+  if (!payload) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const userId = payload.sub;
+  const userWorkspaceId = payload.workspaceId;
+
+  // Find the Instagram account linked to this user
+  // Prefer the one in the user's own workspace (siliconvalleyhub), fall back to any
+  const igAccount = await prisma.socialAccount.findFirst({
+    where: {
+      userId,
+      platform: "INSTAGRAM",
+      instagramId: { not: null },
+      // Ensure we pick an account whose workspaceId matches the user's JWT workspace
+      workspaceId: userWorkspaceId ?? undefined,
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  // Fall back: find any IG account for this user (ignore workspaceId mismatch)
+  const account = igAccount ?? await prisma.socialAccount.findFirst({
+    where: { userId, platform: "INSTAGRAM", instagramId: { not: null } },
+    orderBy: { createdAt: "desc" },
+  });
+
+  // Use the account's workspaceId as the authoritative workspace for all data queries
+  const workspaceId = account?.workspaceId ?? userWorkspaceId;
+
+  if (!workspaceId) {
+    return NextResponse.json({
+      stats: { publishedCount: 0, scheduledCount: 0, totalReach: 0, totalImpressions: 0, avgEngagement: 0 },
+      recentDrafts: [],
+      recentPublished: [],
+      topPosts: [],
+      igUsername: null,
+    });
   }
 
   // Fetch all data in parallel
   const [
     publishedCount,
     scheduledCount,
-    _nextScheduled,
     recentDrafts,
     recentPublished,
     topPosts,
+    engagementData,
+    reachSum,
   ] = await Promise.all([
-      // Total published posts
-      prisma.draft.count({
-        where: { workspaceId, status: "PUBLISHED" },
-      }),
+    // Total published posts
+    prisma.draft.count({ where: { workspaceId, status: "PUBLISHED" } }),
 
-      // Scheduled posts count
-      prisma.scheduledPost.count({
-        where: { workspaceId, publishStatus: "SCHEDULED" },
-      }),
+    // Scheduled posts count
+    prisma.scheduledPost.count({ where: { workspaceId, publishStatus: "SCHEDULED" } }),
 
-      // Next scheduled post time
-      prisma.scheduledPost.findFirst({
-        where: { workspaceId, publishStatus: "SCHEDULED" },
-        orderBy: { scheduledAt: "asc" },
-        select: { scheduledAt: true },
-      }),
+    // Recent drafts
+    prisma.draft.findMany({
+      where: { workspaceId },
+      include: { brand: { select: { name: true } }, mediaAssets: { include: { asset: true }, take: 1 } },
+      orderBy: { updatedAt: "desc" },
+      take: 5,
+    }),
 
-      // Recent drafts (non-published)
-      prisma.draft.findMany({
-        where: { workspaceId },
-        include: {
-          brand: { select: { name: true } },
-          mediaAssets: { include: { asset: true }, take: 1 },
-        },
-        orderBy: { updatedAt: "desc" },
-        take: 5,
-      }),
+    // Recently published via PublishAttempt
+    prisma.publishAttempt.findMany({
+      where: { socialAccount: { workspaceId }, status: "PUBLISHED" },
+      include: { socialAccount: { select: { username: true } } },
+      orderBy: { attemptedAt: "desc" },
+      take: 3,
+    }),
 
-      // Recently published posts (via PublishAttempt)
-      prisma.publishAttempt.findMany({
-        where: {
-          socialAccount: { workspaceId },
-          status: "PUBLISHED",
-        },
-        include: {
-          socialAccount: { select: { username: true } },
-        },
-        orderBy: { attemptedAt: "desc" },
-        take: 3,
-      }),
+    // Top performing posts
+    prisma.analyticsSnapshot.findMany({
+      where: { socialAccount: { workspaceId } },
+      orderBy: { likesCount: "desc" },
+      take: 3,
+    }),
 
-      // Top performing by likes (from AnalyticsSnapshot)
-      prisma.analyticsSnapshot.findMany({
-        where: { workspaceId },
-        orderBy: { likesCount: "desc" },
-        take: 3,
-      }),
-    ]);
+    // Engagement totals
+    prisma.analyticsSnapshot.aggregate({
+      where: { socialAccount: { workspaceId } },
+      _sum: { likesCount: true, commentsCount: true, savesCount: true },
+      _count: true,
+    }),
 
-  // Calculate total reach from analytics snapshots
-  const reachSum = await prisma.analyticsSnapshot.aggregate({
-    where: { workspaceId },
-    _sum: { reach: true, impressions: true },
-  });
-
-  // Avg engagement = total interactions / total published
-  const engagementData = await prisma.analyticsSnapshot.aggregate({
-    where: { workspaceId },
-    _sum: { likesCount: true, commentsCount: true, savesCount: true },
-    _count: true,
-  });
+    // Reach totals
+    prisma.analyticsSnapshot.aggregate({
+      where: { socialAccount: { workspaceId } },
+      _sum: { reach: true, impressions: true },
+    }),
+  ]);
 
   const totalInteractions =
     (engagementData._sum.likesCount ?? 0) +
     (engagementData._sum.commentsCount ?? 0) +
     (engagementData._sum.savesCount ?? 0);
-  const totalPosts = engagementData._count;
   const avgEngagement =
-    totalPosts > 0 ? ((totalInteractions / totalPosts / 100) * 100).toFixed(1) : "0";
-
-  // Get the Instagram username for the workspace
-  const igAccount = await prisma.socialAccount.findFirst({
-    where: { workspaceId, platform: "INSTAGRAM" },
-    select: { username: true },
-  });
+    engagementData._count > 0
+      ? +((totalInteractions / engagementData._count / 100) * 100).toFixed(1)
+      : 0;
 
   return NextResponse.json({
     stats: {
       publishedCount,
       scheduledCount,
-      nextScheduledAt: null as string | null,
       totalReach: reachSum._sum.reach ?? 0,
       totalImpressions: reachSum._sum.impressions ?? 0,
-      avgEngagement: parseFloat(avgEngagement),
+      avgEngagement,
     },
     recentDrafts: recentDrafts.map((d) => ({
       id: d.id,
@@ -138,7 +149,7 @@ export async function GET(req: Request) {
       caption: t.caption ?? "",
       likesCount: t.likesCount,
       commentsCount: t.commentsCount,
-      postUrl: t.postUrl ?? (t.igShortCode ? `https://www.instagram.com/p/${t.igShortCode}/` : null),
+      postUrl: t.postUrl ?? null,
       publishedAt: t.publishedAt?.toISOString() ?? null,
     })),
     igUsername: igAccount?.username ?? null,
