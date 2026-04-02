@@ -28,3 +28,7 @@ yarn-error.log*
 .DS_Store
 *.pem
 .vercel
+
+# User uploads (local media)
+public/media/
+public/uploads/

@@ -56,15 +56,16 @@ export default function DraftEditorPage() {
   const [fetchError, setFetchError] = useState("");
   const [copied, setCopied] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [publishResult, setPublishResult] = useState<{ id: string; permalink: string } | null>(null);
+  const [publishError, setPublishError] = useState("");
 
-  // Editor state (caption tab)
+  // Editor state
   const [caption, setCaption] = useState("");
   const [cta, setCta] = useState("");
   const [selectedVariantIdx, setSelectedVariantIdx] = useState(0);
   const [showVariants, setShowVariants] = useState(false);
   const [activeTab, setActiveTab] = useState<"caption" | "visuals" | "preview" | "insights">("caption");
-
-  // Hashtags as editable tags
   const [hashtagInput, setHashtagInput] = useState("");
   const [hashtags, setHashtags] = useState<string[]>([]);
 
@@ -171,7 +172,7 @@ export default function DraftEditorPage() {
       <div className="flex flex-col items-center justify-center py-24 text-gray-500">
         <AlertTriangle className="w-8 h-8 mb-3 text-red-400" />
         <p className="font-medium text-red-600 mb-2">{fetchError || "Draft not found"}</p>
-        <Link href="/drafts" className="text-sm text-violet-600 hover:underline">← Back to drafts</Link>
+        <Link href="/drafts" className="text-sm text-violet-600 hover:underline">Back to drafts</Link>
       </div>
     );
   }
@@ -223,12 +224,61 @@ export default function DraftEditorPage() {
             <Calendar className="w-4 h-4" />
             Schedule
           </button>
-          <button className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-violet-600 text-white font-medium hover:bg-violet-700 transition text-sm">
-            <Send className="w-4 h-4" />
-            Publish
+          <button
+            onClick={async () => {
+              if (!draft.mediaAssets?.length) {
+                setPublishError("Please attach an image before publishing.");
+                return;
+              }
+              setPublishing(true);
+              setPublishError("");
+              setPublishResult(null);
+              const token = getToken();
+              try {
+                const res = await fetch(`/api/drafts/${draft.id}/publish`, {
+                  method: "POST",
+                  headers: { Authorization: `Bearer ${token}` },
+                });
+                const data = await res.json();
+                if (!res.ok) {
+                  setPublishError(data.error ?? "Publish failed");
+                } else {
+                  setPublishResult(data);
+                  await loadDraft();
+                }
+              } catch (e: unknown) {
+                setPublishError(e instanceof Error ? e.message : "Network error");
+              } finally {
+                setPublishing(false);
+              }
+            }}
+            disabled={publishing}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-violet-600 text-white font-medium hover:bg-violet-700 transition text-sm disabled:opacity-50"
+          >
+            {publishing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+            {publishing ? "Publishing..." : "Publish"}
           </button>
         </div>
       </div>
+
+      {/* Publish feedback */}
+      {publishResult && (
+        <div className="mb-4 p-3 rounded-lg bg-green-50 border border-green-200 text-green-700 text-sm flex items-center justify-between">
+          <span>
+            Published!{" "}
+            <a href={publishResult.permalink} target="_blank" rel="noopener noreferrer" className="underline font-medium">
+              View post
+            </a>
+          </span>
+          <button onClick={() => setPublishResult(null)} className="text-green-500 hover:text-green-700 ml-4">×</button>
+        </div>
+      )}
+      {publishError && (
+        <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm flex items-center justify-between">
+          <span>{publishError}</span>
+          <button onClick={() => setPublishError("")} className="text-red-500 hover:text-red-700 ml-4">×</button>
+        </div>
+      )}
 
       {/* Score pills */}
       <div className="flex items-center gap-3 mb-6">
@@ -343,9 +393,7 @@ export default function DraftEditorPage() {
                       className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-blue-50 text-blue-600 text-xs font-medium"
                     >
                       {tag}
-                      <button onClick={() => removeHashtag(tag)} className="hover:text-blue-800 ml-0.5">
-                        ×
-                      </button>
+                      <button onClick={() => removeHashtag(tag)} className="hover:text-blue-800 ml-0.5">×</button>
                     </span>
                   ))}
                 </div>
@@ -413,7 +461,7 @@ export default function DraftEditorPage() {
               {draft.variants[selectedVariantIdx]
                 ? (() => {
                     const vp = captionVariantData(draft.variants[selectedVariantIdx]);
-                    const visualPrompts = (vp.visualPrompts ?? vp.visualConceptPrompts ?? []) as string[];
+                    const visualPrompts = (vp.visualPrompts ?? []) as string[];
                     if (!visualPrompts.length) {
                       return <p className="text-sm text-gray-400 py-4 text-center">No visual prompts generated yet.</p>;
                     }
@@ -423,15 +471,12 @@ export default function DraftEditorPage() {
                           <div key={i} className="p-4 rounded-xl bg-gray-50 border border-gray-100">
                             <div className="flex items-center justify-between mb-2">
                               <p className="text-xs font-semibold text-gray-500">Prompt {i + 1}</p>
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={() => { navigator.clipboard.writeText(prompt); }}
-                                  className="text-xs text-violet-600 hover:text-violet-700 font-medium"
-                                >
-                                  Copy prompt
-                                </button>
-
-                              </div>
+                              <button
+                                onClick={() => { navigator.clipboard.writeText(prompt); }}
+                                className="text-xs text-violet-600 hover:text-violet-700 font-medium"
+                              >
+                                Copy prompt
+                              </button>
                             </div>
                             <p className="text-sm text-gray-700 leading-relaxed">{prompt}</p>
                           </div>
@@ -446,19 +491,62 @@ export default function DraftEditorPage() {
           {/* Preview Tab */}
           {activeTab === "preview" && (
             <div className="space-y-4">
-              {/* Image URL input */}
-              <div className="bg-white rounded-xl border border-gray-100 p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Image className="w-4 h-4 text-gray-500" />
-                  <span className="text-xs font-semibold text-gray-600">Attach Image</span>
+              {/* Image Attach Panel */}
+              <div className="bg-white rounded-xl border border-gray-100 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Image className="w-4 h-4 text-gray-500" />
+                    <span className="text-xs font-semibold text-gray-600">Attached Images</span>
+                  </div>
+                  {draft.mediaAssets && draft.mediaAssets.length > 0 && (
+                    <span className="text-xs text-green-600 font-medium">
+                      {draft.mediaAssets.length} image(s)
+                    </span>
+                  )}
                 </div>
+
+                {/* Image thumbnails */}
+                {draft.mediaAssets && draft.mediaAssets.length > 0 && (
+                  <div className="space-y-2">
+                    {draft.mediaAssets.map((ma) => (
+                      <div key={ma.asset.id} className="flex items-center gap-3 p-2 rounded-lg border border-gray-100 bg-gray-50">
+                        <img
+                          src={ma.asset.url ?? ""}
+                          alt=""
+                          className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = "";
+                            (e.target as HTMLImageElement).style.display = "none";
+                          }}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-gray-600 truncate">{ma.asset.url}</p>
+                        </div>
+                        <button
+                          onClick={async () => {
+                            const token = getToken();
+                            const res = await fetch(
+                              `/api/drafts/${draft.id}/media/${ma.asset.id}`,
+                              { method: "DELETE", headers: { Authorization: `Bearer ${token}` } }
+                            );
+                            if (res.ok) await loadDraft();
+                          }}
+                          className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs text-red-500 border border-red-200 hover:bg-red-50 transition"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* URL input + insert */}
                 <div className="flex gap-2">
                   <input
                     type="url"
                     id="imageUrlInput"
-                    placeholder="https://example.com/your-image.jpg"
+                    placeholder="Paste image URL..."
                     className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-violet-500 outline-none"
-                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); document.getElementById("insertImageBtn")?.click(); } }}
                   />
                   <button
                     id="insertImageBtn"
@@ -473,57 +561,107 @@ export default function DraftEditorPage() {
                         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
                         body: JSON.stringify({ imageUrl: url }),
                       });
-                      if (res.ok) {
-                        input.value = "";
-                        await loadDraft();
-                      } else {
-                        alert("Failed to attach image");
-                      }
+                      if (res.ok) { input.value = ""; await loadDraft(); }
+                      else { const d = await res.json(); alert(d.error ?? "Failed to attach image"); }
                       setSaving(false);
                     }}
                     disabled={saving}
-                    className="px-4 py-2 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50 transition font-medium flex items-center gap-2"
+                    className="px-4 py-2 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50 transition font-medium flex items-center gap-2 flex-shrink-0"
                   >
                     <Image className="w-4 h-4" />
-                    {saving ? "Saving..." : "Insert"}
+                    {saving ? "..." : "Insert URL"}
                   </button>
                 </div>
-                {draft.mediaAssets && draft.mediaAssets.length > 0 && (
-                  <p className="text-xs text-green-600 mt-1.5">✓ {draft.mediaAssets.length} image(s) attached</p>
+
+                {/* OR divider with local upload */}
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-px bg-gray-200" />
+                  <span className="text-xs text-gray-400">or upload from device</span>
+                  <div className="flex-1 h-px bg-gray-200" />
+                </div>
+
+                <label className="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-lg border-2 border-dashed border-gray-200 hover:border-violet-300 hover:bg-violet-50 cursor-pointer transition text-sm text-gray-500">
+                  <Image className="w-4 h-4" />
+                  <span>Choose file…</span>
+                  <input
+                    type="file"
+                    id="localFileInput"
+                    accept="image/jpeg,image/png,image/gif,image/webp"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = (e.target as HTMLInputElement).files?.[0];
+                      if (!file) return;
+                      if (file.size > 10 * 1024 * 1024) { alert("File too large. Max 10MB."); return; }
+                      setSaving(true);
+                      const token = getToken();
+                      const fd = new FormData();
+                      fd.append("file", file);
+                      const res = await fetch(`/api/drafts/${draft.id}/upload`, {
+                        method: "POST",
+                        headers: { Authorization: `Bearer ${token}` },
+                        body: fd,
+                      });
+                      if (res.ok) { await loadDraft(); (e.target as HTMLInputElement).value = ""; }
+                      else { const d = await res.json(); alert(d.error ?? "Upload failed"); }
+                      setSaving(false);
+                    }}
+                  />
+                </label>
+                {saving && (
+                  <p className="text-xs text-center text-violet-600 animate-pulse">Uploading…</p>
                 )}
               </div>
 
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Instagram Preview</p>
-              <div className="border border-gray-200 rounded-xl overflow-hidden">
-                <div className="flex items-center gap-3 p-3 border-b border-gray-100">
-                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500" />
-                  <div>
-                    <p className="text-sm font-semibold text-gray-900">{draft.brand?.name?.toLowerCase().replace(/\s+/g, "") ?? "brand"}</p>
-                    <p className="text-xs text-gray-500">Sponsored</p>
+              {/* Instagram Preview */}
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Instagram Preview</p>
+                <div className="border border-gray-200 rounded-xl overflow-hidden">
+                  <div className="flex items-center gap-3 p-3 border-b border-gray-100">
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500" />
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">
+                        {draft.brand?.name?.toLowerCase().replace(/\s+/g, "") ?? "brand"}
+                      </p>
+                      <p className="text-xs text-gray-500">Sponsored</p>
+                    </div>
                   </div>
-                </div>
-                {draft.mediaAssets && draft.mediaAssets.length > 0 ? (
-                  <img
-                    src={draft.mediaAssets[0].asset.url!}
-                    alt="Post image"
-                    className="w-full h-full object-cover"
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-gray-100">
-                    <span className="text-gray-300 text-4xl">🖼</span>
+
+                  {draft.mediaAssets && draft.mediaAssets.length > 0 && draft.mediaAssets[0].asset.url ? (
+                    <img
+                      src={draft.mediaAssets[0].asset.url}
+                      alt="Post image"
+                      className="w-full object-cover"
+                      style={{ maxHeight: "420px" }}
+                      onError={(e) => {
+                        const el = e.target as HTMLImageElement;
+                        el.style.display = "none";
+                        el.nextElementSibling?.removeAttribute("hidden");
+                      }}
+                    />
+                  ) : null}
+                  <div
+                    hidden={draft.mediaAssets && draft.mediaAssets.length > 0 && !!draft.mediaAssets[0].asset.url}
+                    className="w-full flex flex-col items-center justify-center bg-gray-100"
+                    style={{ minHeight: "200px" }}
+                  >
+                    <Image className="w-12 h-12 text-gray-300 mb-2" />
+                    <p className="text-sm text-gray-400">No image attached</p>
+                    <p className="text-xs text-gray-300 mt-1">Paste a URL or upload a file above</p>
                   </div>
-                )}
-                <div className="p-4">
-                  <div className="flex items-center gap-4 mb-3">
-                    <span className="text-gray-800">❤️</span>
-                    <span className="text-gray-800">💬</span>
-                    <span className="text-gray-800">✈️</span>
-                    <span className="ml-auto text-gray-800">📖</span>
+
+                  <div className="p-4">
+                    <div className="flex items-center gap-4 mb-3">
+                      <span className="text-gray-800">❤️</span>
+                      <span className="text-gray-800">💬</span>
+                      <span className="text-gray-800">✈️</span>
+                      <span className="ml-auto text-gray-800">📖</span>
+                    </div>
+                    <p className="text-sm text-gray-900 font-semibold mb-1">
+                      {draft.brand?.name ?? "brand"}
+                    </p>
+                    <p className="text-sm text-gray-700 line-clamp-6">{caption}</p>
+                    <p className="text-xs text-gray-400 mt-2">{hashtags.slice(0, 5).join(" ")}</p>
                   </div>
-                  <p className="text-sm text-gray-900 font-semibold mb-1">{draft.brand?.name ?? "brand"}</p>
-                  <p className="text-sm text-gray-700 line-clamp-6">{caption}</p>
-                  <p className="text-xs text-gray-400 mt-2">{hashtags.slice(0, 5).join(" ")}</p>
                 </div>
               </div>
             </div>
@@ -532,11 +670,10 @@ export default function DraftEditorPage() {
           {/* Insights Tab */}
           {activeTab === "insights" && (
             <div className="space-y-3">
-              {/* Score summary */}
               <div className="grid grid-cols-3 gap-3">
                 <div className="bg-white rounded-xl border border-gray-100 p-4 text-center">
                   <p className="text-xs text-gray-500 mb-1">Readiness</p>
-                  <p className={cn("text-2xl font-bold", draft.readinessScore !== null && draft.readinessScore >= 70 ? "text-green-600" : draft.readinessScore !== null && draft.readinessScore >= 40 ? "text-amber-600" : "text-red-600")}>{draft.readinessScore ?? "—"}</p>
+                  <p className={cn("text-2xl font-bold", draft.readinessScore !== null && draft.readinessScore >= 70 ? "text-green-600" : "text-amber-600")}>{draft.readinessScore ?? "—"}</p>
                 </div>
                 <div className="bg-white rounded-xl border border-gray-100 p-4 text-center">
                   <p className="text-xs text-gray-500 mb-1">Brand Fit</p>
@@ -560,8 +697,7 @@ export default function DraftEditorPage() {
                 </div>
                 {draft.insights.length === 0 && (
                   <div className="text-center py-3">
-                    <p className="text-sm text-gray-400 mb-2">No insights yet — generate content to get AI-powered suggestions.</p>
-                    <p className="text-xs text-gray-400">Tips: Add a caption, attach an image, and fill in all content fields to improve your readiness score.</p>
+                    <p className="text-sm text-gray-400 mb-2">No insights yet. Generate content to get AI-powered suggestions.</p>
                   </div>
                 )}
               </div>
@@ -584,19 +720,12 @@ export default function DraftEditorPage() {
                   <p className="text-sm text-gray-700">{insight.message}</p>
                 </div>
               ))}
-              {(!draft.mediaAssets || draft.mediaAssets.length === 0) && (
-                <div className="mt-4 p-4 rounded-xl border-2 border-dashed border-gray-200 text-center">
-                  <Image className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                  <p className="text-sm text-gray-500">No media attached yet</p>
-                </div>
-              )}
             </div>
           )}
         </div>
 
-        {/* Right: Variants + Activity */}
+        {/* Right: Variants + Details */}
         <div className="space-y-4">
-          {/* Variants */}
           <div className="bg-white rounded-xl border border-gray-100 p-4">
             <h3 className="text-sm font-semibold text-gray-700 mb-3">
               Content Variants ({draft.variants.length})
@@ -632,7 +761,6 @@ export default function DraftEditorPage() {
             </div>
           </div>
 
-          {/* Meta */}
           <div className="bg-white rounded-xl border border-gray-100 p-4">
             <h3 className="text-sm font-semibold text-gray-700 mb-3">Details</h3>
             <div className="space-y-2 text-sm">

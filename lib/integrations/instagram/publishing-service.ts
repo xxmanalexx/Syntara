@@ -9,8 +9,6 @@ const IG_GRAPH_BASE = "https://graph.facebook.com/v21.0";
 
 interface ContainerStatusResponse {
   status: string;
-  instagram_id?: string;
-  error?: string;
 }
 
 interface PaginatedMediaResponse {
@@ -30,13 +28,13 @@ export class InstagramPublishingService {
 
   /**
    * Publish a single-image feed post.
+   * @param igUserIdOverride - pass to skip the /me/accounts lookup (recommended)
    */
-  async publishFeedPost(req: {
-    imageUrl: string;
-    caption: string;
-    altText?: string;
-  }): Promise<InstagramPublishResponse> {
-    const igUserId = await this.resolveIgUserId();
+  async publishFeedPost(
+    req: { imageUrl: string; caption: string; altText?: string },
+    igUserIdOverride?: string
+  ): Promise<InstagramPublishResponse> {
+    const igUserId = igUserIdOverride ?? await this.resolveIgUserId();
     const publishReq: InstagramPublishingRequest = {
       caption: req.caption,
       imageUrls: [req.imageUrl],
@@ -186,11 +184,9 @@ export class InstagramPublishingService {
    */
   async getContainerStatus(containerId: string): Promise<{
     status: string;
-    instagramId?: string;
-    error?: string;
   }> {
     const response = await fetch(
-      `${IG_GRAPH_BASE}/${containerId}?fields=status,instagram_id,error&access_token=${encodeURIComponent(this.accessToken)}`
+      `${IG_GRAPH_BASE}/${containerId}?fields=status&access_token=${encodeURIComponent(this.accessToken)}`
     );
 
     if (!response.ok) {
@@ -201,8 +197,6 @@ export class InstagramPublishingService {
     const data = (await response.json()) as ContainerStatusResponse;
     return {
       status: data.status,
-      instagramId: data.instagram_id,
-      error: data.error,
     };
   }
 
@@ -398,7 +392,8 @@ export class InstagramPublishingService {
     while (Date.now() - start < maxWaitMs) {
       const status = await this.getContainerStatus(containerId);
 
-      if (status.status === "finished") {
+      const containerStatus = status.status;
+      if (containerStatus === "finished" || containerStatus.startsWith("Finished")) {
         // Publish the finished container
         const publishResponse = await fetch(
           `${IG_GRAPH_BASE}/${igUserId}/media_publish?access_token=${encodeURIComponent(this.accessToken)}`,
@@ -430,8 +425,8 @@ export class InstagramPublishingService {
         return { id: publishedData.id, permalink: mediaData.permalink };
       }
 
-      if (status.status === "error" || status.error) {
-        throw new Error(`Container publish error: ${status.error}`);
+      if (status.status === "error") {
+        throw new Error("Container publish error");
       }
 
       // Wait before next poll
@@ -452,9 +447,10 @@ export class InstagramPublishingService {
     while (Date.now() - start < maxWaitMs) {
       const status = await this.getContainerStatus(containerId);
 
-      if (status.status === "finished") return;
-      if (status.status === "error" || status.error) {
-        throw new Error(`Child container error: ${status.error}`);
+      const s = status.status;
+      if (s === "finished" || s.startsWith("Finished")) return;
+      if (status.status === "error") {
+        throw new Error("Child container error");
       }
 
       await new Promise((resolve) => setTimeout(resolve, interval));

@@ -24,9 +24,12 @@ export class InstagramAuthService {
       redirect_uri: this.config.redirectUri,
       scope: [
         "instagram_basic",
+        "instagram_manage_messages",
         "instagram_content_publish",
         "instagram_manage_insights",
-        "pages_read_engagement",
+        "instagram_manage_comments",
+        "instagram_manage_contents",
+        "public_profile",
       ].join(","),
       response_type: "code",
     });
@@ -103,7 +106,7 @@ export class InstagramAuthService {
     const pagesData = (await pagesResponse.json()) as { data: InstagramPage[] };
 
     if (!pagesData.data || pagesData.data.length === 0) {
-      throw new Error("No Facebook pages found for this user.");
+      throw new Error("No Facebook pages found for this user. Please create a Facebook Page and link it to your Instagram Business account.");
     }
 
     // Use the first page that has an Instagram business account

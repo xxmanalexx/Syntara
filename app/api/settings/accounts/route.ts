@@ -6,6 +6,8 @@ const JWT_SECRET = new TextEncoder().encode(
   process.env.NEXTAUTH_SECRET ?? "dev-secret-change-in-production"
 );
 
+export const dynamic = "force-dynamic";
+
 export async function GET(req: Request) {
   try {
     const token = req.headers.get("authorization")?.replace("Bearer ", "");

@@ -1,231 +1,47 @@
 # Syntara — AI Instagram Content OS
 
-> An AI-native, Instagram-first content automation platform for solopreneurs and small teams. Generate on-brand captions, visuals, and scheduling strategy — all from one workspace.
-
-⚠️ **Status:** Syntara v0.1.0 MVP scaffold — fully typed, zero TS errors. Push to GitHub pending PAT scope resolution (see [#getting-started](#getting-help)).
+> Generate, schedule, and publish Instagram posts with AI — all from one workspace.
 
 ---
 
-## 🎯 What Syntara Does
+## What it does
 
-| Step | What happens |
-|------|-------------|
-| **1. Connect** | Link your Instagram Professional account via Meta OAuth |
-| **2. Define your brand** | Set voice, tone, audience, style keywords, banned phrases |
-| **3. Create** | Describe your post in plain language — Syntara generates 3 caption variants, hook/body/CTA structure, hashtags, and visual prompts |
-| **4. Generate visuals** | AI-generated images via Nano Banana — create, regenerate, or vary your visuals |
-| **5. Score & refine** | Real-time readiness scoring (brand alignment, completeness, hook strength) |
-| **6. Schedule** | Pick a time — Syntara publishes when your audience is most active |
-| **7. Learn** | Analytics sync back to measure what worked |
+1. **Connect** your Instagram Professional account (Meta OAuth)
+2. **Define your brand** — voice, tone, audience, style, banned phrases
+3. **Create** — describe your post in plain language, get AI-generated captions, hashtags, visual prompts, and scored drafts
+4. **Attach media** — paste an image URL or upload from your device
+5. **Publish** — one click posts to Instagram directly
 
 ---
 
-## 🏗️ Architecture
+## Tech Stack
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                           Next.js 14 App Router                   │
-│  /login  /onboarding  /dashboard  /create  /drafts  /calendar   │
-│  /analytics  /settings  /drafts/[id]                             │
-├─────────────────────────────────────────────────────────────────┤
-│                         API Routes (11 routes)                   │
-│  auth · brands · drafts · images · schedules · instagram · cron │
-├──────────────┬──────────────┬────────────────────────────────────┤
-│   Ollama     │  Nano Banana  │         Instagram / Meta           │
-│  Text +      │  Image Gen    │         OAuth + Publishing         │
-│  Embeddings  │  Provider     │         (two-step container)      │
-│              │  Adapter       │                                    │
-├──────────────┴──────────────┴────────────────────────────────────┤
-│                      Core Services Layer                          │
-│  DraftService · BrandProfileService · SchedulingService          │
-│  AnalyticsSyncService · ContentScoringService                    │
-├─────────────────────────────────────────────────────────────────┤
-│                      Background Workers                           │
-│  publish-worker · analytics-worker · ollama-health-worker        │
-├─────────────────────────────────────────────────────────────────┤
-│                      Prisma ORM → PostgreSQL                      │
-│  20+ models: User, Workspace, BrandProfile, Draft, DraftVariant, │
-│  DraftSection, MediaAsset, ScheduledPost, AnalyticsSnapshot...   │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Integrations
-
-| Integration | Purpose | Adapter |
-|-------------|---------|---------|
-| **Ollama** | Caption generation, rewriting, hashtag extraction, reel scripts, hook analysis | `lib/integrations/ollama/` |
-| **Nano Banana** | Text-to-image, image editing, variations | `lib/integrations/nanobanana/` |
-| **Instagram API** | OAuth, publishing (two-step), analytics sync | `lib/integrations/instagram/` |
-
-### Key Design Decisions
-
-- **Provider adapter pattern** — image generation uses a Nano Banana adapter; swap internals without touching the rest of the codebase
-- **Prompt lineage** — every generated image stores its full `PromptVersion` chain for traceability
-- **Idempotent publishing** — duplicate detection via Instagram container ID before publish
-- **Rate-limit aware scheduling** — retry logic with exponential backoff on 429 responses
-- **Readiness scoring** — content graded on hook strength, brand alignment, completeness, and media presence before publishing is allowed
+| Layer | Technology |
+|---|---|---|
+| Framework | Next.js 14 (App Router) |
+| Language | TypeScript 5 strict |
+| Styling | Tailwind CSS v3 |
+| Database | PostgreSQL (Neon) via Prisma 5 |
+| Auth | JWT (jose) + bcrypt |
+| AI Text | Ollama (local LLM) |
+| AI Images | Nano Banana API |
+| Social | Instagram Graph API (Meta) |
+| CDN | Cloudinary (image uploads for publishing) |
+| Icons | Lucide React |
 
 ---
 
-## 📁 Project Structure
-
-```
-Syntara/
-├── app/
-│   ├── page.tsx                    # Landing / marketing page
-│   ├── login/page.tsx             # Auth — login
-│   ├── onboarding/page.tsx        # Brand profile setup wizard
-│   ├── dashboard/
-│   │   ├── layout.tsx             # Dashboard shell with sidebar
-│   │   └── page.tsx               # Overview + quick actions
-│   ├── create/page.tsx            # AI content generation form
-│   ├── drafts/
-│   │   ├── page.tsx               # Draft list with status filters
-│   │   └── [id]/
-│   │       └── page.tsx           # Full editor — caption / visuals / preview / insights
-│   ├── calendar/page.tsx          # Scheduled post calendar view
-│   ├── analytics/page.tsx         # Performance dashboard
-│   └── settings/page.tsx          # Account + Instagram connection
-│   └── api/                       # 11 Route Handlers
-│       ├── auth/{login,register,session}/
-│       ├── brands/
-│       ├── drafts/{,generate,[id]}/
-│       ├── images/generate/
-│       ├── instagram/{connect,callback}/
-│       ├── ollama/health/
-│       ├── schedules/
-│       └── cron/{publish,analytics}/
-│
-├── lib/
-│   ├── db.ts                      # Prisma singleton
-│   ├── utils.ts                   # Formatting, date helpers, cn()
-│   ├── validation.ts              # Zod schemas for all inputs
-│   │
-│   ├── integrations/
-│   │   ├── ollama/
-│   │   │   ├── client.ts          # HTTP client, retries, timeouts, streaming
-│   │   │   ├── content-service.ts # All 8 content generation methods
-│   │   │   ├── embedding-service.ts
-│   │   │   └── index.ts
-│   │   ├── nanobanana/
-│   │   │   ├── client.ts          # Image gen HTTP client, 3 endpoints
-│   │   │   ├── image-service.ts   # Draft-aware image ops (generate, regenerate, edit, variants)
-│   │   │   ├── types.ts           # All Nano Banana types
-│   │   │   └── index.ts
-│   │   └── instagram/
-│   │       ├── types.ts           # Instagram API types
-│   │       ├── auth-service.ts    # Meta OAuth flow
-│   │       ├── publishing-service.ts # Two-step publish, carousel, rate limit handling
-│   │       └── index.ts
-│   │
-│   ├── services/
-│   │   ├── draft-service.ts       # CRUD + variant management
-│   │   ├── brand-service.ts       # BrandProfile CRUD + Zod validation
-│   │   ├── scheduling-service.ts  # Optimal time calculation, scheduling
-│   │   ├── analytics-service.ts   # IG metrics sync, engagement rates
-│   │   └── scoring-service.ts     # Readiness, brand, completeness, insight generation
-│   │
-│   └── workers/
-│       ├── publish-worker.ts      # Cron-triggered publish queue processor
-│       ├── analytics-worker.ts    # Periodic analytics sync
-│       └── ollama-health-worker.ts # Periodic Ollama health checks
-│
-├── prisma/
-│   └── schema.prisma              # 20+ models, all enums, PostgreSQL
-│
-├── types/
-│   └── index.ts                   # All TypeScript types + enums (single file)
-│
-├── .env.example                   # All required environment variables
-├── .gitignore
-├── next.config.ts
-├── tailwind.config.ts
-├── tsconfig.json
-└── package.json
-```
-
----
-
-## 🗄️ Database Schema
-
-20 models across 5 domains:
-
-**Identity & Workspace**
-- `User` — email, password hash, timestamps
-- `Workspace` — user's isolated workspace
-
-**Brand**
-- `BrandProfile` — voice, tone, style keywords, banned phrases, visual references
-- `ContentSource` — raw input topics, links, briefs
-
-**Content**
-- `Draft` — all post content, scores, metadata
-- `DraftVariant` — A/B caption variants stored as JSON
-- `DraftSection` — structured sections: hook, body, CTA, hashtags, script, shot list
-- `DraftMedia` — draft-to-asset join table with primary flag
-
-**Media**
-- `MediaAsset` — image/video/carousel assets (uploaded or AI-generated)
-- `ImageGenerationJob` — job tracking with status + error messages
-- `PromptVersion` — full prompt lineage for every generated image
-
-**Publishing & Analytics**
-- `SocialAccount` — Instagram OAuth tokens, account metadata, professional flag
-- `ScheduledPost` — scheduled publish with retry state
-- `PublishAttempt` — per-attempt result log
-- `AnalyticsSnapshot` — synced IG metrics (likes, comments, reach, impressions)
-- `ContentInsight` — AI-generated content tips (hook strength, brand alignment, gaps)
-- `UsageEvent` — usage logging for all generations
-
----
-
-## 🔌 API Routes
-
-| Route | Method | Description |
-|-------|--------|-------------|
-| `/api/auth/login` | POST | Email/password login → JWT session cookie |
-| `/api/auth/register` | POST | Create account with hashed password |
-| `/api/auth/session` | GET | Validate session, return user data |
-| `/api/brands` | GET/POST | List and create brand profiles |
-| `/api/drafts` | GET/POST | List and create drafts |
-| `/api/drafts/[id]` | GET/PATCH/DELETE | Single draft operations |
-| `/api/drafts/generate` | POST | Trigger full AI content generation pipeline |
-| `/api/images/generate` | POST | Generate image via Nano Banana |
-| `/api/schedules` | GET/POST/PATCH | Manage scheduled posts |
-| `/api/instagram/connect` | GET | Start Meta OAuth flow |
-| `/api/instagram/callback` | GET | Handle OAuth callback, store tokens |
-| `/api/ollama/health` | GET | Check Ollama is reachable |
-| `/api/cron/publish` | POST | Trigger publish worker (protected by CRON_SECRET) |
-| `/api/cron/analytics` | POST | Trigger analytics sync (protected by CRON_SECRET) |
-
----
-
-## 🧠 Ollama Content Generation Methods
-
-`OllamaContentService` exposes 8 generation methods, all with JSON schema validation and Zod output parsing:
-
-| Method | Output |
-|--------|--------|
-| `generateCaption(brandId, contentType, topic)` | Hook + body + CTA + hashtags (structured JSON) |
-| `generateCaptionVariants(brandId, topic, numVariants)` | 3 tone-shifted caption variants |
-| `rewriteCaption(brandId, caption, instruction)` | Rewrites from natural language instruction |
-| `generateHashtags(brandId, caption)` | Ranked 1–30 hashtags with reasoning |
-| `extractContentTopics(rawText)` | Parsed topics, themes, tone from raw input |
-| `analyzeHookStrength(caption)` | Hook quality 0–100 + improvement suggestions |
-| `generateReelScript(brandId, topic)` | Hook + body + CTA + shot list (structured JSON) |
-| `generateVisualPrompt(brandId, topic, style?)` | Detailed SD image prompt |
-
----
-
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 
-- **Node.js 20+**
-- **PostgreSQL 15+** (Neon, Supabase, or local)
-- **Ollama** running locally (`ollama serve`) — [ollama.ai](https://ollama.ai)
-- **Nano Banana API key** — from [nanobanana.io](https://nanobanana.io)
-- **Meta Developer App** — [developers.facebook.com](https://developers.facebook.com)
+- Node.js 20+
+- PostgreSQL 15+ (Neon recommended for free tier)
+- Ollama running locally — [ollama.ai](https://ollama.ai)
+- Meta Developer App — [developers.facebook.com](https://developers.facebook.com)
+- Cloudinary account (free) — [cloudinary.com](https://cloudinary.com) — for image publishing
+
+---
 
 ### 1. Clone & Install
 
@@ -239,16 +55,14 @@ npm install
 
 ```bash
 cp .env.example .env
-# Edit .env with your values (see Configuration section below)
 ```
+
+Edit `.env` with your values. All variables are documented in `.env.example`.
 
 ### 3. Database Setup
 
 ```bash
-# Push schema to your PostgreSQL database
 npx prisma db push
-
-# Generate Prisma client
 npx prisma generate
 ```
 
@@ -256,12 +70,11 @@ npx prisma generate
 
 ```bash
 ollama serve
-# In another terminal:
 ollama pull llama3.2:latest
 ollama pull nomic-embed-text:latest
 ```
 
-### 5. Run the App
+### 5. Run
 
 ```bash
 npm run dev
@@ -271,16 +84,112 @@ Open [http://localhost:3000](http://localhost:3000)
 
 ---
 
-## 🔧 Configuration
+## Docker Setup
 
-### Required Environment Variables
+### Prerequisites
+
+- [Docker](https://docs.docker.com/get-docker/) 20+
+- [Docker Compose](https://docs.docker.com/compose/install/) v2+
+
+### Quick Start
 
 ```bash
+# Start all services (Postgres + App)
+docker compose up --build
+
+# App runs at http://localhost:3000
+# PostgreSQL exposed on port 5432
+```
+
+### Docker Compose Services
+
+| Service | Port | Notes |
+|---|---|---|
+| `app` | 3000 | Next.js dev server |
+| `postgres` | 5432 | PostgreSQL 15, `syntara` database |
+
+### Persisted Volumes
+
+- `postgres_data` — PostgreSQL data directory
+- `./public/media` — locally uploaded images (gitignored)
+
+### Environment Variables
+
+Copy `.env.example` to `.env` and fill in values before running `docker compose up`:
+
+```bash
+cp .env.example .env
+# Edit .env with your secrets
+docker compose up --build
+```
+
+The Docker setup uses your host's CPU for Ollama (run `ollama serve` separately on your host machine).
+
+### Stopping
+
+```bash
+docker compose down        # stop containers
+docker compose down -v      # stop + destroy database volume
+```
+
+---
+
+## Meta App Setup
+
+1. Create an app at [developers.facebook.com](https://developers.facebook.com) → **Create App** → choose **Consumer** or **Business** type
+2. Add **Instagram Graph API** product to your app
+3. In **Settings → Basic**, copy **App ID** and **App Secret** to your `.env`
+4. Configure OAuth redirect URI:
+   - Settings → Instagram Basic Display → Valid OAuth Redirect URIs:
+   - `http://localhost:3000/api/instagram/callback`
+5. Required OAuth scopes:
+   - `instagram_basic`
+   - `instagram_content_publish`
+   - `instagram_manage_insights`
+   - `instagram_manage_messages`
+   - `instagram_manage_comments`
+   - `instagram_manage_contents`
+6. Add a test Instagram user: **Roles → Roles** → Add Test Users
+
+### Enabling OAuth Client Flow
+
+If you get implicit flow errors during connect:
+1. In Meta Developer Portal → your app → **Products → Facebook Login** → **Settings**
+2. Enable **OAuth Client Flow**
+3. Set **Valid OAuth Redirect URIs** to `http://localhost:3000/api/instagram/callback`
+
+---
+
+## Cloudinary Setup (Required for Publishing)
+
+Instagram needs publicly accessible image URLs. Syntara uses Cloudinary to proxy local uploads.
+
+1. Sign up at [cloudinary.com](https://cloudinary.com) (free tier: 25 credits/month)
+2. Copy your **Cloud Name** from the Dashboard
+3. Create an upload preset:
+   - **Settings** → **Upload** → **Upload presets** → **Add upload preset**
+   - Name: `syntara`
+   - **Signing Mode**: **Unsigned**
+   - Save
+4. Add to `.env`:
+   ```env
+   NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=your_cloud_name
+   NEXT_PUBLIC_CLOUDINARY_PRESET=syntara
+   ```
+
+---
+
+## Environment Variables
+
+```env
 # App
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 
-# Database (Neon PostgreSQL example)
-DATABASE_URL=postgresql://user:password@host:5432/syntara?sslmode=require
+# Database
+DATABASE_URL=postgresql://postgres:password@localhost:5432/syntara?sslmode=prefer
+
+# Auth
+NEXTAUTH_SECRET=generate-with-openssl-rand-base64-32
 
 # Ollama
 OLLAMA_BASE_URL=http://localhost:11434
@@ -292,129 +201,92 @@ NANO_BANANA_API_KEY=your-api-key
 NANO_BANANA_BASE_URL=https://api.nanobanana.io/v1
 
 # Meta / Instagram
-META_APP_ID=your-app-id
-META_APP_SECRET=your-app-secret
+META_APP_ID=your-meta-app-id
+META_APP_SECRET=your-meta-app-secret
 META_REDIRECT_URI=http://localhost:3000/api/instagram/callback
 
-# Auth
-NEXTAUTH_SECRET=generate-with-openssl-rand-base64-32
-ENCRYPTION_KEY=64-hex-chars-for-aes-256
+# Cloudinary (required for publishing)
+NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=your_cloud_name
+NEXT_PUBLIC_CLOUDINARY_PRESET=syntara
 
 # Cron (protect internal webhooks)
 CRON_SECRET=your-random-secret
 ```
 
-### Meta App Setup
-
-1. Create app at [developers.facebook.com](https://developers.facebook.com)
-2. Add **Instagram Graph API** product
-3. Configure OAuth redirect: `http://localhost:3000/api/instagram/callback`
-4. Set required scopes: `instagram_basic`, `instagram_content_publish`, `instagram_manage_insights`, `pages_read_engagement`
-5. Add test Instagram user in Roles → Test Users
-
-### Ollama Model Notes
-
-The `OLLAMA_TEXT_MODEL` must support JSON tool/schema output for best results. `llama3.2:latest` is recommended. For embeddings, `nomic-embed-text` provides high-quality vectors for semantic matching.
-
 ---
 
-## 📊 Content Scoring System
+## Project Structure
 
-Every draft gets three scores computed by `ContentScoringService`:
-
-| Score | Range | What it checks |
-|-------|-------|----------------|
-| **Readiness** | 0–100 | Is the post ready to publish? (hook, CTA, media present, no banned phrases) |
-| **Brand Alignment** | 0–100 | Does tone/voice match the BrandProfile settings? |
-| **Completeness** | 0–100 | Are all required fields filled for the content type? |
-
-Scoring runs automatically after each AI generation and on every draft save.
-
----
-
-## ⏰ Scheduling Logic
-
-`SchedulingService` calculates optimal posting windows based on:
-
-1. User's historical engagement patterns (synced from Instagram analytics)
-2. Timezone-aware slot generation (default: 08:00, 12:00, 17:00, 20:00 GMT)
-3. Rate limit protection — max 2 posts per Instagram Professional account per 24h
-
----
-
-## 🔒 Security Notes
-
-- Social account access/refresh tokens are encrypted at rest with AES-256-GCM (`ENCRYPTION_KEY`)
-- Cron routes protected by `CRON_SECRET` bearer token
-- JWT sessions via `jose` library with RS256/HS256
-- Banned phrases enforced server-side — checked by `scoring-service` before publishing
-
----
-
-## 🧩 Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| Framework | Next.js 14 (App Router) |
-| Language | TypeScript 5 (strict mode) |
-| Styling | Tailwind CSS v3 |
-| Database | PostgreSQL via Prisma 5 |
-| Auth | Custom JWT (jose) + bcrypt |
-| Validation | Zod |
-| AI Text | Ollama (local LLM) |
-| AI Images | Nano Banana API |
-| Social | Instagram Graph API via Meta |
-| Icons | Lucide React |
-| State | React Hook Form + TanStack Query |
-
----
-
-## 📦 Available Scripts
-
-```bash
-npm run dev          # Start dev server (localhost:3000)
-npm run build        # Production build
-npm run start        # Start production server
-npm run lint         # ESLint
-npm run typecheck    # TypeScript type check (zero errors)
-npm run db:push      # Push Prisma schema to DB
-npm run db:migrate   # Run migrations
-npm run db:generate  # Generate Prisma client
-npm run db:studio    # Open Prisma Studio
-npm run db:seed      # Seed database with sample data
+```
+Syntara/
+├── app/
+│   ├── page.tsx                    # Landing page
+│   ├── login/page.tsx             # Login
+│   ├── onboarding/page.tsx        # Brand setup wizard
+│   ├── dashboard/page.tsx         # Overview with real data
+│   ├── create/page.tsx            # AI content generation
+│   ├── drafts/
+│   │   ├── page.tsx               # Draft list
+│   │   └── [id]/page.tsx          # Draft editor
+│   ├── calendar/page.tsx          # Schedule calendar
+│   ├── analytics/page.tsx         # Performance metrics
+│   ├── settings/page.tsx          # Account + IG connection
+│   └── api/                       # Route handlers
+│       ├── auth/{login,register,session}/
+│       ├── brands/
+│       ├── drafts/{,generate,[id],[id]/publish,[id]/upload,[id]/media}/
+│       ├── dashboard/
+│       ├── images/generate/
+│       ├── instagram/{connect,callback}/
+│       ├── ollama/health/
+│       └── schedules/
+├── lib/
+│   ├── integrations/
+│   │   ├── ollama/                # Content generation
+│   │   ├── instagram/             # OAuth + publishing
+│   │   ├── nanobanana/            # Image generation
+│   │   └── cloudinary-upload.ts   # CDN proxy for IG
+│   └── services/                  # Business logic
+├── prisma/
+│   └── schema.prisma              # 20+ models
+└── public/media/                  # Local image uploads
 ```
 
 ---
 
-## 🐛 Known Issues
+## Available Scripts
 
-- **GitHub push blocked** — PAT lacks `repo` scope for Syntara repo; push pending PAT scope resolution. Workaround: clone locally and push from machine with full-scope token.
-- **Instagram webhook** — webhook route is scaffolded but not yet wired in the app (container creation + publish happens in `publishing-service.ts`; webhook verification endpoint needs registration in Meta Developer Portal)
-- **Redis not wired** — `REDIS_URL` is in env but background jobs use in-process queues; swap for BullMQ + Redis for production concurrency
-- **No email delivery** — transactional emails (magic link, digest) need an email provider (Resend, Postmark) wired into the auth routes
+```bash
+npm run dev          # Dev server (localhost:3000)
+npm run build        # Production build
+npm run start        # Production server
+npm run lint         # ESLint
+npm run typecheck    # TypeScript check
+npm run db:push      # Push schema to DB
+npm run db:generate  # Generate Prisma client
+npm run db:studio    # Prisma Studio
+```
 
 ---
 
-## 🛤️ Roadmap
+## Roadmap
 
-- [ ] Wire Instagram webhook route + register in Meta Developer Portal
-- [ ] Visual drag-and-drop flow builder for content workflows
-- [ ] Real Cal.com booking API for appointment posts
-- [ ] Web chat widget JS embed (for website widget)
-- [ ] Full analytics dashboard with charts (Recharts)
-- [ ] Bulk CSV import for content sources
-- [ ] Team collaboration (multi-workspace roles)
+- [ ] Analytics dashboard with charts
+- [ ] Visual flow builder for content workflows
+- [ ] Real Cal.com booking integration
+- [ ] Web chat widget JS embed
+- [ ] Bulk CSV content import
+- [ ] Team collaboration (multi-workspace)
+- [ ] Instagram webhook for DM automation
 - [ ] Mobile-responsive UI pass
-- [ ] Nightly FollowUpAgent cron job (rescue unresponded DMs)
-- [ ] Slack escalation notifications
-- [ ] Full test suite (Vitest + Playwright)
-- [ ] CI/CD pipeline (GitHub Actions)
+- [ ] Full test suite
+- [ ] CI/CD pipeline
 
 ---
 
-## 📄 License
+## License
 
-MIT — © 2025 xxmanalexx
+MIT
 
 ---
 
