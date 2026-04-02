@@ -55,10 +55,10 @@ export type ContentSourceInput = z.infer<typeof contentSourceSchema>;
 
 // ─── Content Generation ───────────────────────────────────────────────────────
 
-export const generateContentSchema = z.object({
-  brandId: z.string().cuid("Invalid brand ID"),
-  contentType: z.enum(["FEED_POST", "CAROUSEL", "REEL", "STORY"]),
-  sourceContent: z.string().min(1, "Source content is required").max(5000),
+const generateBaseSchema = z.object({
+  brandId: z.string().cuid("Invalid brand ID").optional(),
+  contentType: z.enum(["FEED_POST", "CAROUSEL", "REEL", "STORY"]).optional(),
+  sourceContent: z.string().max(5000).optional(),
   sourceType: z.enum([
     "topic",
     "note",
@@ -69,7 +69,7 @@ export const generateContentSchema = z.object({
     "upload",
     "brief",
     "draft_duplication",
-  ]),
+  ]).optional(),
   tone: z.enum([
     "PROFESSIONAL",
     "CASUAL",
@@ -79,12 +79,13 @@ export const generateContentSchema = z.object({
     "PLAYFUL",
     "EMPOWERING",
     "MINIMAL",
-  ]).default("CASUAL"),
-  generateVisuals: z.boolean().default(false),
-  referenceImageUrls: z.array(z.string().url()).default([]),
+  ]).default("CASUAL").optional(),
+  generateVisuals: z.boolean().default(false).optional(),
+  referenceImageUrls: z.array(z.string().url()).default([]).optional(),
+  regenerateFromDraftId: z.string().cuid().optional(),
 });
 
-export type GenerateContentInput = z.infer<typeof generateContentSchema>;
+export const generateContentSchema = generateBaseSchema;
 
 // ─── Image Generation ──────────────────────────────────────────────────────────
 

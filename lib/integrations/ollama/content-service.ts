@@ -45,25 +45,41 @@ const SlideCopySchema = z.object({
 });
 
 const CarouselResponseSchema = z.object({
-  conceptDirections: z.array(z.union([z.string(), z.object({ direction: z.string(), concept: z.string().optional() })])).min(3).max(3),
+  conceptDirections: z.array(
+    z.union([z.string(), z.object({ direction: z.string(), concept: z.string().optional() }), z.record(z.string())])
+  ).min(3).max(3),
   coverHook: z.string(),
   slideStructure: z.array(SlideStructureSchema).min(5).max(10),
   slideCopy: z.array(SlideCopySchema),
   caption: z.string(),
   cta: z.string(),
-  visualPrompts: z.array(z.union([z.string(), z.object({ prompt: z.string(), concept: z.string().optional() })])).default([]),
+  visualPrompts: z.array(
+    z.union([z.string(), z.object({ prompt: z.string(), concept: z.string().optional() }), z.record(z.string())])
+  ).default([]),
   coverImageConcept: z.string(),
   generatedSlideVisuals: z.array(z.string()).default([]),
 }).transform((obj) => ({
   ...obj,
-  // Normalize conceptDirections to flat strings
-  conceptDirections: obj.conceptDirections.map((d) =>
-    typeof d === "string" ? d : d.concept ?? d.direction ?? String(d)
-  ),
-  // Normalize visualPrompts to flat strings
-  visualPrompts: obj.visualPrompts.map((v) =>
-    typeof v === "string" ? v : v.prompt ?? v.concept ?? String(v)
-  ),
+  conceptDirections: obj.conceptDirections.map((d) => {
+    if (typeof d === "string") return d;
+    if (typeof d === "object" && d !== null) {
+      if (d.direction) return String(d.direction);
+      if (d.concept) return String(d.concept);
+      const vals = Object.values(d).filter((v) => typeof v === "string");
+      return vals[0] ?? Object.keys(d)[0] ?? "";
+    }
+    return String(d);
+  }),
+  visualPrompts: obj.visualPrompts.map((v) => {
+    if (typeof v === "string") return v;
+    if (typeof v === "object" && v !== null) {
+      if (v.prompt) return String(v.prompt);
+      if (v.concept) return String(v.concept);
+      const vals = Object.values(v).filter((val) => typeof val === "string");
+      return vals[0] ?? Object.keys(v)[0] ?? "";
+    }
+    return String(v);
+  }),
 }));
 
 export type CarouselResponse = z.infer<typeof CarouselResponseSchema>;
@@ -77,25 +93,99 @@ const HookDirectionSchema = z.object({
 });
 
 const ReelResponseSchema = z.object({
-  hookDirections: z.array(z.union([
-    HookDirectionSchema,
-    z.object({ direction: z.string(), hookText: z.string(), whyItWorks: z.string().optional() }),
-  ])).min(3).max(3),
-  scriptOrTalkingPoints: z.union([z.string(), z.array(z.string())]).default(""),
-  shotList: z.array(z.union([z.string(), z.object({ shot: z.string(), description: z.string().optional() })])).default([]),
-  visualStoryboard: z.union([z.string(), z.object({ description: z.string() })]).default(""),
+  hookDirections: z.array(z.any()).min(3).max(3),
+  scriptOrTalkingPoints: z.any().default(""),
+  shotList: z.array(z.any()).default([]),
+  visualStoryboard: z.any().default(""),
   caption: z.string(),
   cta: z.string(),
-  thumbnailCoverConcept: z.union([z.string(), z.object({ concept: z.string() })]).default(""),
-}).transform((obj) => ({
-  ...obj,
-  scriptOrTalkingPoints: Array.isArray(obj.scriptOrTalkingPoints)
-    ? obj.scriptOrTalkingPoints.join("\n")
-    : obj.scriptOrTalkingPoints,
-  shotList: obj.shotList.map((s) => typeof s === "string" ? s : s.shot ?? s.description ?? String(s)),
-  visualStoryboard: typeof obj.visualStoryboard === "string" ? obj.visualStoryboard : obj.visualStoryboard.description ?? "",
-  thumbnailCoverConcept: typeof obj.thumbnailCoverConcept === "string" ? obj.thumbnailCoverConcept : obj.thumbnailCoverConcept.concept ?? "",
-}));
+  thumbnailCoverConcept: z.any().default(""),
+}).transform((obj) => {
+  // scriptOrTalkingPoints: handle object { "0": "...", "1": "..." }, string, or array
+  let scriptOrTalkingPoints = obj.scriptOrTalkingPoints;
+  if (typeof scriptOrTalkingPoints === "object" && scriptOrTalkingPoints !== null && !Array.isArray(scriptOrTalkingPoints)) {
+    const vals = Object.values(scriptOrTalkingPoints).flatMap((v) =>
+      typeof v === "string" ? [v] : Array.isArray(v) ? v : []
+    );
+    scriptOrTalkingPoints = vals.join("\n");
+  } else if (Array.isArray(scriptOrTalkingPoints)) {
+    scriptOrTalkingPoints = scriptOrTalkingPoints.join("\n");
+  }
+  scriptOrTalkingPoints = String(scriptOrTalkingPoints ?? "");
+
+  // shotList: extract string from any shape (string, { shot }, { "0": "text" }, { shotNumber: 1, shot: "..." })
+  const shotList = (obj.shotList ?? []).map((s: unknown) => {
+    if (typeof s === "string") return s;
+    if (typeof s === "object" && s !== null) {
+      const rec = s as Record<string, unknown>;
+      if (rec.shot) return String(rec.shot);
+      if (rec.description) return String(rec.description);
+      if (rec.text) return String(rec.text);
+      if (rec.content) return String(rec.content);
+      if (rec.shotNumber !== undefined) {
+        // It's a numbered shot object, build a string from available fields
+        const parts = [];
+        if (rec.shotNumber !== undefined) parts.push(`Shot ${rec.shotNumber}`);
+        if (rec.description) parts.push(String(rec.description));
+        return parts.join(": ") || `Shot ${rec.shotNumber}`;
+      }
+      const vals = Object.values(rec).filter((v) => typeof v === "string");
+      return vals[0] ?? Object.keys(rec)[0] ?? "";
+    }
+    return String(s);
+  });
+
+  // visualStoryboard: extract string from any shape
+  let visualStoryboard = obj.visualStoryboard;
+  if (typeof visualStoryboard === "object" && visualStoryboard !== null) {
+    const rec = visualStoryboard as Record<string, unknown>;
+    if (rec.description) visualStoryboard = String(rec.description);
+    else if (rec.text) visualStoryboard = String(rec.text);
+    else {
+      const vals = Object.values(rec).filter((v) => typeof v === "string");
+      visualStoryboard = vals[0] ?? "";
+    }
+  }
+  visualStoryboard = String(visualStoryboard ?? "");
+
+  // thumbnailCoverConcept: extract string from any shape
+  let thumbnailCoverConcept = obj.thumbnailCoverConcept;
+  if (typeof thumbnailCoverConcept === "object" && thumbnailCoverConcept !== null) {
+    const rec = thumbnailCoverConcept as Record<string, unknown>;
+    if (rec.concept) thumbnailCoverConcept = String(rec.concept);
+    else if (rec.description) thumbnailCoverConcept = String(rec.description);
+    else if (rec.text) thumbnailCoverConcept = String(rec.text);
+    else {
+      const vals = Object.values(rec).filter((v) => typeof v === "string");
+      thumbnailCoverConcept = vals[0] ?? "";
+    }
+  }
+  thumbnailCoverConcept = String(thumbnailCoverConcept ?? "");
+
+  // hookDirections: extract direction strings from any shape
+  const hookDirections = (obj.hookDirections ?? []).map((h: unknown) => {
+    if (typeof h === "string") return h;
+    if (typeof h === "object" && h !== null) {
+      const rec = h as Record<string, unknown>;
+      if (rec.direction) return String(rec.direction);
+      if (rec.hookText) return String(rec.hookText);
+      if (rec.text) return String(rec.text);
+      const vals = Object.values(rec).filter((v) => typeof v === "string");
+      return vals[0] ?? Object.keys(rec)[0] ?? "";
+    }
+    return String(h);
+  });
+
+  return {
+    hookDirections,
+    scriptOrTalkingPoints,
+    shotList,
+    visualStoryboard,
+    caption: obj.caption,
+    cta: obj.cta,
+    thumbnailCoverConcept,
+  };
+});
 
 export type ReelResponse = z.infer<typeof ReelResponseSchema>;
 
@@ -115,22 +205,63 @@ const FrameCopySchema = z.object({
 });
 
 const StoryResponseSchema = z.object({
-  conceptDirections: z.array(z.union([z.string(), z.object({ direction: z.string(), concept: z.string().optional() })])).min(3).max(3),
+  conceptDirections: z.array(
+    z.union([
+      z.string(),
+      z.record(z.string()), // handles { "0": "text" } or { direction: "...", concept: "..." }
+    ])
+  ).min(3).max(3),
   frameSequence: z.array(FrameSequenceSchema).min(3).max(5),
   frameByFrameCopy: z.array(FrameCopySchema),
   stickerSuggestions: z.array(z.string()),
   ctaProgression: z.union([z.array(z.string()), z.string()]).default([]),
-  visualPrompts: z.array(z.union([z.string(), z.object({ prompt: z.string(), concept: z.string().optional() })])).default([]),
-}).transform((obj) => ({
-  ...obj,
-  conceptDirections: obj.conceptDirections.map((d) =>
-    typeof d === "string" ? d : d.concept ?? d.direction ?? String(d)
-  ),
-  ctaProgression: Array.isArray(obj.ctaProgression) ? obj.ctaProgression : [obj.ctaProgression],
-  visualPrompts: obj.visualPrompts.map((v) =>
-    typeof v === "string" ? v : v.prompt ?? v.concept ?? String(v)
-  ),
-}));
+  visualPrompts: z.array(
+    z.union([
+      z.string(),
+      z.record(z.string()),
+    ])
+  ).default([]),
+  caption: z.string().optional().default(""),
+}).transform((obj) => {
+  // conceptDirections: extract text from whatever format the model returns
+  const conceptDirections = obj.conceptDirections.map((d) => {
+    if (typeof d === "string") return d;
+    if (typeof d === "object" && d !== null) {
+      // Try known fields first
+      if (d.direction) return String(d.direction);
+      if (d.concept) return String(d.concept);
+      // Fall back to first string value found
+      const vals = Object.values(d).filter((v) => typeof v === "string");
+      return vals[0] ?? Object.keys(d)[0] ?? "";
+    }
+    return String(d);
+  });
+
+  // visualPrompts: extract text
+  const visualPrompts = (obj.visualPrompts ?? []).map((v) => {
+    if (typeof v === "string") return v;
+    if (typeof v === "object" && v !== null) {
+      if (v.prompt) return String(v.prompt);
+      if (v.concept) return String(v.concept);
+      const vals = Object.values(v).filter((val) => typeof val === "string");
+      return vals[0] ?? Object.keys(v)[0] ?? "";
+    }
+    return String(v);
+  });
+
+  const frameTexts = (obj.frameByFrameCopy ?? [])
+    .map((f) => f.copy)
+    .filter(Boolean)
+    .join(" ");
+
+  return {
+    ...obj,
+    conceptDirections,
+    visualPrompts,
+    caption: obj.caption || frameTexts || conceptDirections[0] || "",
+    ctaProgression: Array.isArray(obj.ctaProgression) ? obj.ctaProgression : [obj.ctaProgression],
+  };
+});
 
 export type StoryResponse = z.infer<typeof StoryResponseSchema>;
 

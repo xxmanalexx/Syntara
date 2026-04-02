@@ -3,6 +3,10 @@ import { jwtVerify } from "jose";
 import { prisma } from "@/lib/db";
 import { generateContentSchema } from "@/lib/validation";
 import { OllamaClient } from "@/lib/integrations/ollama/client";
+import type { TonePreset } from "@/types";
+
+// Allow up to 5 minutes for content generation (Reel/Story are heavy)
+export const maxDuration = 300;
 import { OllamaContentService } from "@/lib/integrations/ollama/content-service";
 import { DraftService } from "@/lib/services/draft-service";
 import { ContentScoringService } from "@/lib/services/scoring-service";
@@ -48,11 +52,36 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
     }
 
-    const { brandId, contentType, sourceContent, tone } = parsed.data;
+    const { brandId, contentType, sourceContent, tone, regenerateFromDraftId } = parsed.data;
+
+    // ── Resolve brand, content type, and source content for regeneration ─────────
+    let resolvedBrandId: string = brandId ?? "";
+    let resolvedSourceContent: string = sourceContent ?? "";
+    let resolvedContentType: "FEED_POST" | "CAROUSEL" | "REEL" | "STORY" | undefined = contentType;
+    let resolvedTone: TonePreset = "CASUAL";
+
+    if (regenerateFromDraftId) {
+      const existingDraft = await prisma.draft.findFirst({
+        where: { id: regenerateFromDraftId, workspaceId },
+        include: { brand: true },
+      });
+      if (!existingDraft) {
+        return NextResponse.json({ error: "Draft not found" }, { status: 404 });
+      }
+      resolvedBrandId = (existingDraft.brandId ?? brandId ?? "") as string;
+      resolvedSourceContent = (existingDraft.caption ?? sourceContent ?? "") as string;
+    }
+
+    if (!resolvedBrandId) {
+      return NextResponse.json({ error: "Brand ID is required" }, { status: 400 });
+    }
+    if (!resolvedContentType) {
+      return NextResponse.json({ error: "Content type is required" }, { status: 400 });
+    }
 
     // ── Verify brand belongs to this workspace ───────────────────────────────
     const brand = await prisma.brandProfile.findFirst({
-      where: { id: brandId, workspaceId },
+      where: { id: resolvedBrandId, workspaceId },
     });
     if (!brand) {
       return NextResponse.json(
@@ -61,7 +90,7 @@ export async function POST(req: Request) {
       );
     }
 
-    console.log(`[Generate] workspace=${workspaceId} brandId=${brandId} brand=${brand.name}`);
+    console.log(`[Generate] workspace=${workspaceId} brandId=${resolvedBrandId} brand=${brand.name}`);
     console.log(`[Generate] brand.keywords=${brand.styleKeywords.join(", ")}`);
     console.log(`[Generate] brand.banned=${brand.bannedPhrases.join(", ")}`);
 
@@ -76,29 +105,28 @@ export async function POST(req: Request) {
       true // disableThinking
     );
 
-    // ── Generate content ────────────────────────────────────────────────────
-    const draft = await draftService.create({
-      workspaceId,
-      brandId,
-      contentType,
-      tone,
-    });
+    // ── Create or reuse draft ─────────────────────────────────────────────────
+    const isRegenerate = !!regenerateFromDraftId;
+    const targetDraftId = isRegenerate
+      ? regenerateFromDraftId
+      : (await draftService.create({ workspaceId, brandId: resolvedBrandId, contentType: resolvedContentType!, tone: resolvedTone! })).id;
 
+    // ── Generate content ────────────────────────────────────────────────────
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let result: any;
 
-    switch (contentType) {
+    switch (resolvedContentType) {
       case "FEED_POST":
-        result = await contentService.generateFeedPostVariants(brand as any, sourceContent, tone);
+        result = await contentService.generateFeedPostVariants(brand as any, resolvedSourceContent, resolvedTone!);
         break;
       case "CAROUSEL":
-        result = await contentService.generateCarouselContent(brand as any, sourceContent, tone);
+        result = await contentService.generateCarouselContent(brand as any, resolvedSourceContent, resolvedTone!);
         break;
       case "REEL":
-        result = await contentService.generateReelContent(brand as any, sourceContent, tone);
+        result = await contentService.generateReelContent(brand as any, resolvedSourceContent, resolvedTone!);
         break;
       case "STORY":
-        result = await contentService.generateStoryContent(brand as any, sourceContent, tone);
+        result = await contentService.generateStoryContent(brand as any, resolvedSourceContent, resolvedTone!);
         break;
       default:
         return NextResponse.json({ error: "Unsupported content type" }, { status: 400 });
@@ -109,7 +137,7 @@ export async function POST(req: Request) {
     const variants: any[] = result.variants ?? [result];
 
     await draftService.saveGeneratedVariants(
-      draft.id,
+      targetDraftId,
       variants.map((v) => ({
         caption: v.caption,
         hook: v.hook,
@@ -124,23 +152,33 @@ export async function POST(req: Request) {
 
     // ── Apply first variant to draft ────────────────────────────────────────
     const first = variants[0];
-    await draftService.update(draft.id, {
-      caption: first.caption,
-      cta: first.cta,
+
+    // For STORY: use frameByFrameCopy (structured objects) for storyFrames
+    const storyFrames = resolvedContentType === "STORY"
+      ? (first.frameByFrameCopy ?? []).map((f: { frameNumber?: number; copy?: string; cta?: string }, i: number) => ({
+          frameNumber: f.frameNumber ?? i + 1,
+          copy: f.copy ?? "",
+          cta: f.cta ?? null,
+        }))
+      : (first.frameCopies as string[] | undefined)?.map((fc: string, i: number) => ({
+          frameNumber: i + 1,
+          copy: fc,
+        }));
+
+    await draftService.update(targetDraftId, {
+      caption: first.caption ?? "",
+      cta: first.cta ?? null,
       hashtags: first.hashtags ?? [],
-      reelHook: first.hook ?? first.reelHook,
-      reelScript: first.script,
-      reelShotList: first.shotList,
-      reelCaption: first.caption,
-      storyFrames: first.frameCopies?.map((fc: string, i: number) => ({
-        frameNumber: i + 1,
-        copy: fc,
-      })),
+      reelHook: first.hook ?? first.reelHook ?? null,
+      reelScript: first.script ?? null,
+      reelShotList: first.shotList ?? [],
+      reelCaption: first.caption ?? null,
+      storyFrames,
     });
 
     // ── Score ───────────────────────────────────────────────────────────────
-    await scoringService.updateScores(draft.id);
-    const updatedDraft = await draftService.getById(draft.id);
+    await scoringService.updateScores(targetDraftId);
+    const updatedDraft = await draftService.getById(targetDraftId);
 
     return NextResponse.json({
       draft: updatedDraft,

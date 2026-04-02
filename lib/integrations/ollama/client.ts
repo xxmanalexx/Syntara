@@ -66,15 +66,16 @@ interface FetchOptions extends RequestInit {
 }
 
 async function fetchWithTimeout(url: string, options: FetchOptions = {}): Promise<Response> {
-  const { timeoutMs = 30_000, ...fetchOptions } = options;
+  const { timeoutMs = 600_000, ...fetchOptions } = options; // 10 min default
 
+  // Use AbortSignal.timeout() available in Node 18+
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const response = await fetch(url, {
       ...fetchOptions,
-      signal: controller.signal,
+      signal: controller.signal as AbortSignal,
     });
     return response;
   } catch (err) {
@@ -134,7 +135,7 @@ async function fetchWithRetry<T>(
 export class OllamaClient {
   constructor(
     private readonly baseUrl: string = OLLAMA_BASE_URL,
-    private readonly defaultTimeoutMs: number = 300_000,
+    private readonly defaultTimeoutMs: number = 600_000, // 10 minutes for heavy content
   ) {}
 
   private get baseHeaders(): HeadersInit {
@@ -229,7 +230,24 @@ export class OllamaClient {
       const raw = await this.generate({ ...opts, format: "json" });
 
       try {
-        const parsed = JSON.parse(raw.response);
+        // Strip markdown code fences robustly (model often wraps JSON in ```json ... ```)
+        let cleaned = raw.response;
+        // Remove opening fence: ```json\n or ```json\n
+        cleaned = cleaned.replace(/^```json\s*/i, "");
+        // Remove closing fence: \n``` at end
+        cleaned = cleaned.replace(/\s*```$/im, "");
+        // If still starts with backtick, strip any remaining fence-like patterns
+        if (cleaned.startsWith("`")) {
+          cleaned = cleaned.replace(/^`+/, "").replace(/`+$/, "");
+        }
+        // Remove any raw backticks that would break JSON parsing
+        cleaned = cleaned.replace(/`/g, "");
+        cleaned = cleaned.trim();
+        // Validate it starts with { or [
+        if (!cleaned.startsWith("{") && !cleaned.startsWith("[")) {
+          throw new OllamaParseError(`Response does not look like JSON after cleaning: ${cleaned.slice(0, 100)}`, cleaned);
+        }
+        const parsed = JSON.parse(cleaned);
         return schema.parse(parsed);
       } catch (err) {
         lastError = new OllamaParseError(
@@ -248,7 +266,12 @@ export class OllamaClient {
           };
           const retryRaw = await this.generate(patched);
           try {
-            const parsed = JSON.parse(retryRaw.response);
+            let cleanedRetry = retryRaw.response;
+            cleanedRetry = cleanedRetry.replace(/^```json\s*/i, "").replace(/\s*```$/im, "").replace(/`/g, "").trim();
+            if (!cleanedRetry.startsWith("{") && !cleanedRetry.startsWith("[")) {
+              throw new OllamaParseError(`Retry response does not look like JSON: ${cleanedRetry.slice(0, 100)}`, cleanedRetry);
+            }
+            const parsed = JSON.parse(cleanedRetry);
             return schema.parse(parsed);
           } catch {
             // fall through to retry
