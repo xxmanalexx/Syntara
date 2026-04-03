@@ -356,19 +356,28 @@ function ResearchTab({ searchQuery, setSearchQuery, handleResearch, searching, h
       {results.length === 0 && !searching && !error && (
         <div className="text-center py-12 text-gray-400">
           <Hash className="w-10 h-10 mx-auto mb-3 opacity-30" />
-          <p className="text-base font-medium">Discover top-performing posts by hashtag</p>
-          <p className="text-sm mt-1">Search for any hashtag to see posts ranked by engagement</p>
+          {hashtags.length > 0
+            ? <p className="text-base font-medium">No posts found for #{hashtags[0]?.name}</p>
+            : <><p className="text-base font-medium">Discover top-performing posts by hashtag</p><p className="text-sm mt-1">Search for any hashtag to see posts ranked by engagement</p></>
+          }
         </div>
       )}
 
       {/* Hashtag chips */}
       {hashtags.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {hashtags.map((h) => (
-            <span key={h.id} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-violet-50 border border-violet-100 text-violet-700 text-sm font-medium">
-              #{h.name}
-            </span>
-          ))}
+        <div className="space-y-3">
+          <div className="flex flex-wrap gap-2">
+            {hashtags.map((h) => (
+              <span key={h.id} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-violet-50 border border-violet-100 text-violet-700 text-sm font-medium">
+                #{h.name}
+              </span>
+            ))}
+          </div>
+          {results.length > 0 && (
+            <p className="text-sm text-gray-500">
+              {results.reduce((sum: number, g: any) => sum + g.posts.length, 0)} top posts found
+            </p>
+          )}
         </div>
       )}
 

@@ -34,14 +34,30 @@ export class InstagramInsightsService {
 
   /**
    * Get top posts for a hashtag sorted by engagement.
-   * Uses top_media with id+like_count+comments_count+caption.
-   * Caption field is returned for some posts (not all) — show what IG gives us.
+   * Uses top_media with id+like_count+comments_count+caption (limit 5 to avoid timeout).
+   * Falls back to id+like_count only if caption field times out.
    */
   async getHashtagTopMedia(hashtagId: string, limit = 5): Promise<any[]> {
-    const data = await this.graphFetch(`/${hashtagId}/top_media`, {
-      user_id: this.igUserId,
-      fields: "id,like_count,comments_count,caption",
-    });
-    return (data.data ?? []).slice(0, limit);
+    // Try with caption first (preferred)
+    try {
+      const data = await this.graphFetch(`/${hashtagId}/top_media`, {
+        user_id: this.igUserId,
+        fields: "id,like_count,comments_count,caption",
+      });
+      return (data.data ?? []).slice(0, limit);
+    } catch (err: any) {
+      // Fallback: caption field caused timeout — get engagement metrics without caption
+      if (err.message?.includes("reduce") || err.message?.includes("timeout")) {
+        const data = await this.graphFetch(`/${hashtagId}/top_media`, {
+          user_id: this.igUserId,
+          fields: "id,like_count,comments_count",
+        });
+        return (data.data ?? []).slice(0, limit).map((p: any) => ({
+          ...p,
+          caption: "",
+        }));
+      }
+      throw err;
+    }
   }
 }
