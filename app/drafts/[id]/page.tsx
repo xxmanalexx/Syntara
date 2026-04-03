@@ -224,7 +224,13 @@ export default function DraftEditorPage() {
             {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
             {copied ? "Copied!" : "Copy caption"}
           </button>
-          <button onClick={() => setShowScheduleModal(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition text-sm font-medium">
+          <button onClick={() => {
+            if (!draft.mediaAssets?.length) {
+              setPublishError("Please attach an image before scheduling this post.");
+              return;
+            }
+            setShowScheduleModal(true);
+          }} className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition text-sm font-medium">
             <Calendar className="w-4 h-4" />
             Schedule
           </button>

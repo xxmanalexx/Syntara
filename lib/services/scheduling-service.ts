@@ -63,10 +63,14 @@ export class SchedulingService {
   }
 
   async recordAttempt(scheduledPostId: string, result: PublishResult): Promise<void> {
+    const scheduledPost = await prisma.scheduledPost.findUnique({ where: { id: scheduledPostId } });
+    const socialAccount = await prisma.socialAccount.findFirst({
+      where: { workspaceId: scheduledPost?.workspaceId ?? "", platform: "INSTAGRAM" },
+    });
     await prisma.publishAttempt.create({
       data: {
         scheduledPostId,
-        socialAccountId: (await prisma.scheduledPost.findUnique({ where: { id: scheduledPostId } }))?.workspaceId,
+        socialAccountId: socialAccount?.id,
         status: result.success ? "PUBLISHED" : "FAILED",
         instagramId: result.instagramId,
         permalink: result.permalink,

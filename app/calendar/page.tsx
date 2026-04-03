@@ -53,9 +53,7 @@ export default function CalendarPage() {
     }
   }, []);
 
-  useEffect(() => {
-    loadScheduled();
-  }, [loadScheduled]);
+  useEffect(() => { loadScheduled(); }, [loadScheduled]);
 
   useEffect(() => {
     if (showScheduleModal && drafts.length === 0) {
@@ -67,25 +65,53 @@ export default function CalendarPage() {
     }
   }, [showScheduleModal, drafts.length]);
 
+  const schedulableDrafts = drafts.filter((d) => d.status !== "PUBLISHED");
+  const selectedDraft = schedulableDrafts.find((d) => d.id === scheduleDraftId);
   const selectedEvents = selected
     ? scheduledPosts.filter((e) => isSameDay(new Date(e.scheduledAt), selected))
     : [];
 
+  async function handleSchedule() {
+    if (!scheduleDraftId) { alert("Please choose a draft"); return; }
+    if (!selectedDraft?.hasImage) { alert("This draft has no images attached. Please add an image before scheduling."); return; }
+    if (!scheduleDate) { alert("Please select a date"); return; }
+    const scheduledAt = new Date(`${scheduleDate}T${scheduleTime}`);
+    if (isNaN(scheduledAt.getTime()) || scheduledAt <= new Date()) { alert("Invalid or past date/time"); return; }
+    setScheduling(true);
+    const token = localStorage.getItem("syntara_token");
+    const res = await fetch("/api/schedules", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ draftId: scheduleDraftId, scheduledAt: scheduledAt.toISOString() }),
+    });
+    setScheduling(false);
+    if (!res.ok) { const d = await res.json(); alert(d.error ?? "Failed to schedule"); return; }
+    setShowScheduleModal(false);
+    setScheduleDraftId(""); setScheduleDate(""); setScheduleTime("12:00");
+    loadScheduled();
+  }
+
   return (
     <div className="max-w-5xl mx-auto space-y-6">
+      {/* Page header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Calendar</h1>
           <p className="text-gray-500 mt-1">Plan and schedule your Instagram content.</p>
         </div>
-          <button onClick={() => setShowScheduleModal(true)} className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-violet-600 text-white font-medium hover:bg-violet-700 transition">
-          <Plus className="w-5 h-5" />
-          Schedule Post
-        </button>
+        <div>
+          <button
+            onClick={() => setShowScheduleModal(true)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-violet-600 text-white font-medium hover:bg-violet-700 transition"
+          >
+            <Plus className="w-5 h-5" />
+            Schedule Post
+          </button>
+        </div>
       </div>
 
+      {/* Calendar grid */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-100">
           <button onClick={prevMonth} className="p-2 rounded-lg hover:bg-gray-100 transition">
             <ChevronLeft className="w-5 h-5 text-gray-500" />
@@ -98,7 +124,6 @@ export default function CalendarPage() {
           </button>
         </div>
 
-        {/* Day labels */}
         <div className="grid grid-cols-7 border-b border-gray-100">
           {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
             <div key={d} className="py-3 text-center text-xs font-semibold text-gray-400 uppercase tracking-wide">
@@ -107,7 +132,6 @@ export default function CalendarPage() {
           ))}
         </div>
 
-        {/* Calendar grid */}
         <div className="grid grid-cols-7">
           {Array.from({ length: firstDay }).map((_, i) => (
             <div key={`empty-${i}`} className="min-h-24 border-b border-r border-gray-100 bg-gray-50/50" />
@@ -149,15 +173,21 @@ export default function CalendarPage() {
 
       {loading && <p className="text-center text-sm text-gray-400">Loading schedule...</p>}
 
-      {/* Schedule Modal */}
+      {/* Schedule modal */}
       {showScheduleModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4 space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold text-gray-900">Schedule a Post</h3>
-              <button onClick={() => setShowScheduleModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
+              <button
+                onClick={() => { setShowScheduleModal(false); setScheduleDraftId(""); setScheduleDate(""); setScheduleTime("12:00"); }}
+                className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+              >
+                ×
+              </button>
             </div>
-            <p className="text-sm text-gray-500">Select a draft to schedule for this date.</p>
+            <p className="text-sm text-gray-500">Select a draft to schedule for a future date.</p>
+
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1.5">Draft</label>
               <select
@@ -166,11 +196,17 @@ export default function CalendarPage() {
                 className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-violet-500 outline-none"
               >
                 <option value="">— Choose a draft —</option>
-                {drafts.map((d) => (
-                  <option key={d.id} value={d.id}>{d.brand?.name ?? "Draft"} — {d.contentType.replace("_", " ")}</option>
+                {schedulableDrafts.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.brandName ?? "Draft"} — {d.contentType?.replace("_", " ")} {!d.hasImage && "⚠️ (no image)"}
+                  </option>
                 ))}
               </select>
+              {scheduleDraftId && selectedDraft && !selectedDraft.hasImage && (
+                <p className="mt-1.5 text-xs text-amber-600">⚠️ This draft has no images — add one before scheduling.</p>
+              )}
             </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-semibold text-gray-500 uppercase mb-1.5">Date</label>
@@ -192,32 +228,16 @@ export default function CalendarPage() {
                 />
               </div>
             </div>
+
             <div className="flex gap-3 pt-2">
               <button
-                onClick={() => setShowScheduleModal(false)}
+                onClick={() => { setShowScheduleModal(false); setScheduleDraftId(""); setScheduleDate(""); setScheduleTime("12:00"); }}
                 className="flex-1 px-4 py-2.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 text-sm font-medium transition"
               >
                 Cancel
               </button>
               <button
-                onClick={async () => {
-                  if (!scheduleDraftId) { alert("Please choose a draft"); return; }
-                  if (!scheduleDate) { alert("Please select a date"); return; }
-                  const scheduledAt = new Date(`${scheduleDate}T${scheduleTime}`);
-                  if (isNaN(scheduledAt.getTime()) || scheduledAt <= new Date()) { alert("Invalid or past date/time"); return; }
-                  setScheduling(true);
-                  const token = localStorage.getItem("syntara_token");
-                  const res = await fetch("/api/schedules", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-                    body: JSON.stringify({ draftId: scheduleDraftId, scheduledAt: scheduledAt.toISOString() }),
-                  });
-                  setScheduling(false);
-                  if (!res.ok) { const d = await res.json(); alert(d.error ?? "Failed to schedule"); return; }
-                  setShowScheduleModal(false);
-                  setScheduleDraftId(""); setScheduleDate(""); setScheduleTime("12:00");
-                  loadScheduled();
-                }}
+                onClick={handleSchedule}
                 disabled={scheduling}
                 className="flex-1 px-4 py-2.5 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-700 transition disabled:opacity-50"
               >
