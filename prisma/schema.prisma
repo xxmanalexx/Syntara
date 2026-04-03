@@ -255,6 +255,7 @@ model DraftVariant {
   name       String // "A", "B", "C" or descriptive
   isSelected Boolean  @default(false)
   data       Json // full structured copy variant
+  viralScore Int? // 0–100 viral score computed at generation time
   createdAt  DateTime @default(now())
 
   draft Draft @relation(fields: [draftId], references: [id], onDelete: Cascade)

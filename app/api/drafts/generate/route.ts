@@ -132,13 +132,35 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Unsupported content type" }, { status: 400 });
     }
 
-    // ── Save variants ────────────────────────────────────────────────────────
+    // ── Score variants for viral potential ─────────────────────────────────
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const variants: any[] = result.variants ?? [result];
 
+    const viralScores: number[] = [];
+    for (const v of variants) {
+      try {
+        const score = await contentService.analyzeViralPotential(
+          (v.caption ?? ""),
+          v.cta ?? null,
+          v.hashtags ?? [],
+          resolvedContentType!,
+          resolvedTone!
+        );
+        viralScores.push(score.overallScore);
+      } catch {
+        viralScores.push(0); // score unavailable — put at end
+      }
+    }
+
+    // ── Sort variants by viral score (highest first) ─────────────────────────
+    const sorted = variants
+      .map((v, i) => ({ v, score: viralScores[i] }))
+      .sort((a, b) => b.score - a.score);
+
+    // ── Save variants with viral scores ──────────────────────────────────────
     await draftService.saveGeneratedVariants(
       targetDraftId,
-      variants.map((v) => ({
+      sorted.map(({ v }) => ({
         caption: v.caption,
         hook: v.hook,
         body: v.body,
@@ -147,11 +169,12 @@ export async function POST(req: Request) {
         slideTexts: v.slideTexts,
         frameCopies: v.frameCopies,
         visualPrompts: v.visualPrompts ?? v.visualConceptPrompts ?? [],
-      }))
+      })),
+      sorted.map(({ score }) => score)
     );
 
-    // ── Apply first variant to draft ────────────────────────────────────────
-    const first = variants[0];
+    // ── Apply top viral variant to draft ────────────────────────────────────
+    const first = sorted[0].v;
 
     // For STORY: use frameByFrameCopy (structured objects) for storyFrames
     const storyFrames = resolvedContentType === "STORY"
@@ -182,7 +205,8 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       draft: updatedDraft,
-      variants,
+      variants: sorted.map(({ v, score }, i) => ({ ...v, viralScore: score, _rank: i + 1 })),
+      viralScores: sorted.map(({ score }) => score),
       imagePrompts: result.imagePrompts ?? [],
     });
   } catch (err: any) {

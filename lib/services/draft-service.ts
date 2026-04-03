@@ -103,7 +103,7 @@ export class DraftService {
     ]);
   }
 
-  async saveGeneratedVariants(draftId: string, variants: ContentVariantData[]): Promise<DraftVariant[]> {
+  async saveGeneratedVariants(draftId: string, variants: ContentVariantData[], viralScores?: number[]): Promise<DraftVariant[]> {
     // Insert variants one at a time to avoid createManyAndReturn field-mapping issues
     const created: DraftVariant[] = [];
     for (let i = 0; i < variants.length; i++) {
@@ -113,6 +113,7 @@ export class DraftService {
           draftId,
           name: String.fromCharCode(65 + i),
           isSelected: i === 0,
+          viralScore: viralScores?.[i] ?? null,
           data: {
             caption: v.caption ?? null,
             hook: v.hook ?? null,
