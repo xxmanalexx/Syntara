@@ -48,7 +48,7 @@ export class InstagramInsightsService {
       likeCount: p.like_count ?? 0,
       commentsCount: p.comments_count ?? 0,
       engagement: (p.like_count ?? 0) + (p.comments_count ?? 0),
-      permalink: `https://www.instagram.com/p/${p.id}/`,
+      permalink: "https://www.instagram.com/p/" + p.id + "/",
       caption: "",
       hashtags: [],
     }));
