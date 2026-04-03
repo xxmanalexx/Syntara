@@ -317,8 +317,10 @@ const ViralScoringResponseSchema = z.object({
   commentTrigger: z.number().min(0).max(10).describe("Ability to spark comments 0-10"),
   audienceFit: z.number().min(0).max(10).describe("Fits target audience 0-10"),
   formatFit: z.number().min(0).max(10).describe("Format suitability 0-10"),
-  weaknesses: z.array(z.string()).describe("List of specific weaknesses"),
-  suggestions: z.array(z.string()).describe("Exact rewrite suggestions to improve viral potential"),
+  weaknesses: z.array(z.string()).describe("List of specific weaknesses in this caption"),
+  rewrittenCaption: z.string().describe("A complete rewritten version of the caption that fixes the weaknesses — hook + body + CTA as one cohesive publish-ready piece with line breaks and hashtags included. This is what the user can use directly."),
+  rewrittenCta: z.string().optional().describe("The rewritten CTA if it needs to change"),
+  rewrittenHashtags: z.array(z.string()).optional().describe("Improved hashtag list"),
   viralSummary: z.string().optional().describe("One paragraph summary of viral potential"),
 });
 
@@ -393,6 +395,20 @@ function buildSystemPrompt(brand: BrandProfile, tone: TonePreset, task: string):
     parts.push(`CTA preference: ${brand.ctaPreferences}.`);
   }
 
+  // Viral copywriting DNA — these principles govern ALL content generated
+  parts.push(
+    `\nVIRAL COPYWRITING PRINCIPLES (apply to every caption you generate):`,
+    `• HOOK: First line MUST stop the scroll — curiosity gap, bold claim, relatable pain, or immediate emotion`,
+    `• CLARITY: Every word earns its place. No fluff. No generic brand-speak`,
+    `• ORIGINALITY: Say what competitors don't. Avoid overused phrases like "transform", "game-changer", "secret"`,
+    `• EMOTIONAL PULL: Trigger a real feeling — awe, surprise, warmth, mild outrage, or "that's so true"`,
+    `• SHAREABILITY: Write content someone would send to a friend or tag someone in`,
+    `• SAVE-WORTHINESS: Make it genuinely useful so people bookmark it`,
+    `• COMMENT TRIGGER: End with a question, controversial take, or "tag someone who..."`,
+    `• AUDIENCE FIT: Mirror the audience's language, struggles, and aspirations exactly`,
+    `• FORMAT FIT: For FEED_POST — hook in line 1, value in line 2, CTA at the end`,
+  );
+
   if (brand.visualStyle) {
     parts.push(`Visual style direction: ${brand.visualStyle}.`);
   }
@@ -455,7 +471,7 @@ async generateFeedPostVariants(
     // IMPORTANT: embed brand name and key brand identity directly in the
     // prompt field so the model sees it as primary context, not just in
     // the system prompt where it can be deprioritized.
-    const task = `Generate ${count} distinct Instagram feed post caption variants for the brand "${brand.name}" about the following topic:\n\n"${source}"\n\nBrand identity to strictly follow:\n- Products/ingredients: ${brand.description ?? brand.name}\n- Tone: ${TONE_LABELS[tone] ?? tone}\n${brand.styleKeywords.length > 0 ? `- Style keywords: ${brand.styleKeywords.join(", ")}` : ""}\n${brand.bannedPhrases.length > 0 ? `- NEVER mention these: ${brand.bannedPhrases.join(", ")}` : ""}\n\n${this.langLine(brand)}\n\nEach variant must include:\n- caption: The full Instagram caption (can include line breaks)\n- hook: The opening hook line (1-2 sentences)\n- body: The main body copy after the hook\n- cta: A call-to-action\n- hashtags: 5-15 relevant hashtags\n- altTextSuggestion: Accessibility alt text for the image\n- visualConceptPrompts: Array of exactly 3 detailed image generation prompts\n\nReturn a JSON object with a "variants" array containing ${count} variant objects. Do NOT mention any other brand or ingredient besides "${brand.name}".`;
+    const task = `Generate ${count} distinct Instagram feed post caption variants for the brand "${brand.name}" about the following topic:\n\n"${source}"\n\nBrand identity to strictly follow:\n- Products/ingredients: ${brand.description ?? brand.name}\n- Tone: ${TONE_LABELS[tone] ?? tone}\n${brand.styleKeywords.length > 0 ? `- Style keywords: ${brand.styleKeywords.join(", ")}` : ""}\n${brand.bannedPhrases.length > 0 ? `- NEVER mention these: ${brand.bannedPhrases.join(", ")}` : ""}\n\n${this.langLine(brand)}\n\nCRITICAL — write each caption to MAXIMIZE viral potential:\n- HOOK in LINE 1: must stop the scroll — curiosity gap, bold claim, relatable pain, or immediate emotion\n- LINE 2: deliver an unexpected value or perspective the reader hasn\'t seen before\n- BODY: be specific, not generic. Use real numbers, real stories, real contrast\n- CTA: feel like a friend suggesting something, not a salesperson\n- Hashtags: mix of broad reach (#) + niche community + branded\n- Every caption should make people want to: SAVE it, TAG a friend, or COMMENT\n\nEach variant must include:\n- caption: The FULLY REWRITTEN Instagram caption — hook + body + CTA as one cohesive, publish-ready piece (use line breaks for rhythm)\n- hook: The opening hook line only (1-2 sentences that stop the scroll)\n- body: The main body copy after the hook\n- cta: A call-to-action\n- hashtags: 5-15 relevant hashtags\n- altTextSuggestion: Accessibility alt text for the image\n- visualConceptPrompts: Array of exactly 3 detailed image generation prompts\n\nReturn a JSON object with a "variants" array containing ${count} variant objects. Do NOT mention any other brand or ingredient besides "${brand.name}".`;
 
     const request: OllamaGenerateRequest = {
       model: this.textModel,
@@ -617,7 +633,7 @@ Return a JSON object with:\n- conceptDirections: 3 different concept directions 
       .filter(Boolean)
       .join("\n");
 
-    const prompt = `You are an expert Instagram viral marketing analyst. Evaluate the following Instagram post for its viral potential.
+    const prompt = `You are an expert Instagram viral marketing analyst. Evaluate the following Instagram post and rewrite it to maximize viral potential.
 
 POST CONTENT:
 ${postContent}
@@ -625,24 +641,24 @@ ${postContent}
 Content Type: ${contentType}
 Tone: ${tone}
 
-Evaluate each dimension on a scale of 0-10:
+Score each dimension 0-10:
+1. hookStrength — Does the opening hook grab attention immediately?
+2. clarity — Is the message clear and easy to understand at a glance?
+3. originality — Is the content unique vs. generic/overused phrasing?
+4. emotionalPull — Does it evoke emotion (curiosity, awe, humor, outrage, warmth)?
+5. shareability — Would someone send this to a friend?
+6. saveWorthiness — Is it valuable enough to bookmark?
+7. commentTrigger — Does it spark debate or invite responses?
+8. audienceFit — Does it match what the target audience cares about?
+9. formatFit — Is the format right for this message?
 
-1. **hookStrength** — Does the opening hook grab attention in the first 2 seconds?
-2. **clarity** — Is the message clear and easy to understand at a glance?
-3. **originality** — Is the content unique and fresh vs. generic?
-4. **emotionalPull** — Does it evoke emotion (curiosity, awe, humor, outrage, warmth)?
-5. **shareability** — Would someone share this with their friends/follower
-6. **saveWorthiness** — Is it valuable enough to save for later?
-7. **commentTrigger** — Does it invite engagement or spark debate?
-8. **audienceFit** — Does it match what the target audience cares about?
-9. **formatFit** — Is the content type (${contentType}) well-suited for the message?
+Also return:
+- weaknesses: Array of 2-4 specific weaknesses (be brutally honest)
+- rewrittenCaption: A COMPLETE rewritten version of the entire caption — hook + body + CTA as one cohesive, publish-ready piece with line breaks. Apply everything you learned from scoring. Make it scroll-stopping, specific, and emotionally resonant. Include hashtags inline at the end. This is what the user can paste directly into Instagram.
+- rewrittenCta: The improved call-to-action (or omit if the caption ending is strong enough)
+- viralSummary: One paragraph explaining why this caption will or won't go viral
 
-Also provide:
-- **overallScore**: A weighted 0-100 viral potential score (weigh: hook 20%, emotionalPull 20%, shareability 20%, commentTrigger 15%, saveWorthiness 15%, clarity 10%)
-- **weaknesses**: Array of 3-5 specific, actionable weaknesses
-- **suggestions**: Array of 3-5 exact rewrite suggestions with before/after examples
-
-Return ONLY valid JSON matching this schema:
+Return ONLY valid JSON:
 {
   "overallScore": number (0-100),
   "hookStrength": number (0-10),
@@ -655,7 +671,8 @@ Return ONLY valid JSON matching this schema:
   "audienceFit": number (0-10),
   "formatFit": number (0-10),
   "weaknesses": string[],
-  "suggestions": string[],
+  "rewrittenCaption": string (the complete rewritten caption with hook+body+CTA+hashtags, ready to publish),
+  "rewrittenCta": string (optional),
   "viralSummary": string (optional)
 }`;
 

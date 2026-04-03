@@ -427,9 +427,10 @@ model ViralAnalysis {
   audienceFit     Int  // 0–10
   formatFit       Int  // 0–10
 
-  weaknesses   String[] // array of weakness descriptions
-  suggestions  String[] // array of exact rewrite suggestions
-  viralSummary String?  // one-paragraph summary
+  weaknesses         String[] // specific weaknesses in the caption
+  rewrittenCaption  String? // complete rewritten caption — hook + body + CTA + hashtags, ready to publish
+  rewrittenCta      String? // rewritten call-to-action
+  viralSummary     String? // one-paragraph summary
 
   modelUsed    String?
   createdAt    DateTime @default(now())

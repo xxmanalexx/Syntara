@@ -1007,20 +1007,27 @@ export default function DraftEditorPage() {
                 )}
 
                 {/* Suggestions */}
-                {viralAnalysis.suggestions?.length > 0 && (
-                  <div className="bg-white rounded-xl border border-gray-100 p-4">
-                    <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-violet-500" />
-                      Rewrite Suggestions
-                    </h3>
-                    <ul className="space-y-3">
-                      {viralAnalysis.suggestions.map((s: string, i: number) => (
-                        <li key={i} className="flex items-start gap-2 text-sm text-gray-600">
-                          <span className="text-violet-500 font-bold mt-0.5">{i + 1}.</span>
-                          {s}
-                        </li>
-                      ))}
-                    </ul>
+                {viralAnalysis.rewrittenCaption && (
+                  <div className="bg-white rounded-xl border border-violet-200 p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-semibold text-violet-700 flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-violet-500" />
+                        AI Rewrite — Ready to Use
+                      </h3>
+                      <button
+                        onClick={async () => {
+                          await navigator.clipboard.writeText(viralAnalysis.rewrittenCaption);
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-600 text-white text-xs font-medium hover:bg-violet-700 transition"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                        Copy
+                      </button>
+                    </div>
+                    <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{viralAnalysis.rewrittenCaption}</p>
+                    {viralAnalysis.rewrittenCta && (
+                      <p className="text-sm text-violet-600 font-medium mt-2">CTA: {viralAnalysis.rewrittenCta}</p>
+                    )}
                   </div>
                 )}
 
