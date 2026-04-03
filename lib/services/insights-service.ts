@@ -39,7 +39,7 @@ export class InstagramInsightsService {
       commentsCount: p.comments_count ?? 0,
       engagement: (p.like_count ?? 0) + (p.comments_count ?? 0),
       caption: p.caption ?? "",
-      permalink: "https://www.instagram.com/p/" + p.id + "/",
+      permalink: p.permalink ?? ("https://www.instagram.com/p/" + p.id + "/"),
       hashtags: (p.caption?.match(/#\w+/g) ?? []).slice(0, 10),
     }));
   }
