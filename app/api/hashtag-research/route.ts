@@ -33,7 +33,8 @@ export async function GET(req: Request) {
     const results = await Promise.all(
       hashtags.slice(0, 5).map(async (hashtag) => {
         try {
-          const rawPosts = await ig.getHashtagTopMedia(hashtag.id, 20);
+          // Limit to 9 — top_media with caption field exceeds rate limit beyond ~9 posts
+          const rawPosts = await ig.getHashtagTopMedia(hashtag.id, 9);
           const posts = rawPosts.map((m: any) => ({
             id: m.id,
             permalink: m.permalink,
