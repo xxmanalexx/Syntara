@@ -15,7 +15,6 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const query = searchParams.get("q")?.trim() ?? "";
 
-  // Get IG account
   const socialAccount = await prisma.socialAccount.findFirst({
     where: { platform: "INSTAGRAM" },
     orderBy: { createdAt: "desc" },
@@ -29,46 +28,34 @@ export async function GET(req: Request) {
   }
 
   try {
-    const igService = new InstagramInsightsService(socialAccount.accessToken, socialAccount.instagramId ?? "");
+    const ig = new InstagramInsightsService(socialAccount.accessToken, socialAccount.instagramId ?? "");
 
-    // Search for hashtags matching the query
-    const hashtags = await igService.searchHashtags(query);
+    // Search for matching hashtags
+    const hashtags = await ig.searchHashtags(query);
 
-    // For each hashtag, get top media sorted by engagement
+    // For each, get top posts by engagement
     const results = await Promise.all(
       hashtags.slice(0, 5).map(async (hashtag) => {
         try {
-          const topMedia = await igService.getHashtagTopMedia(hashtag.id, 25);
-          // Sort by total engagement (likes + comments)
-          const sorted = topMedia
-            .filter((m: any) => m.media_type !== "VIDEO")
-            .sort((a: any, b: any) =>
-              (b.like_count + b.comments_count) - (a.like_count + a.comments_count)
-            )
-            .slice(0, 20)
-            .map((m: any) => ({
+          const posts = await ig.getHashtagRecentMedia(hashtag.id, 20);
+          return {
+            hashtag: hashtag.name,
+            posts: posts.map((m: any) => ({
               id: m.id,
               permalink: m.permalink,
               caption: m.caption ? m.caption.slice(0, 120) + "..." : "",
               likeCount: m.like_count,
               commentsCount: m.comments_count,
               mediaType: m.media_type,
-              thumbnail: m.thumbnail_url,
               timestamp: m.timestamp,
               engagement: m.like_count + m.comments_count,
               formattedLikes: formatCount(m.like_count),
               formattedComments: formatCount(m.comments_count),
               hashtags: m.caption ? (m.caption.match(/#\w+/g) ?? []).slice(0, 10) : [],
-            }));
-
-          return {
-            hashtag: hashtag.name,
-            mediaCount: hashtag.mediaCount,
-            formattedMediaCount: formatCount(hashtag.mediaCount),
-            posts: sorted,
+            })),
           };
         } catch {
-          return { hashtag: hashtag.name, mediaCount: hashtag.mediaCount, formattedMediaCount: formatCount(hashtag.mediaCount), posts: [] };
+          return { hashtag: hashtag.name, posts: [] };
         }
       })
     );

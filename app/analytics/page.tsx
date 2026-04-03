@@ -184,135 +184,8 @@ export default function AnalyticsPage() {
       )}
 
       {/* Analytics Tab */}
-      {activeTab === "analytics" && <AnalyticsContent summary={summary} posts={posts} syncing={syncing} syncNow={syncNow} />}
-
-      {(!summary || summary.totalPosts === 0) ? (
-        <div className="bg-white rounded-xl border border-gray-100 p-12 text-center">
-          <p className="text-gray-400 text-lg font-medium mb-2">No analytics yet</p>
-          <p className="text-gray-400 text-sm mb-6">
-            Publish your first post and sync to see your analytics here.
-          </p>
-          <div className="flex items-center justify-center gap-3">
-            <Link
-              href="/drafts"
-              className="px-4 py-2 text-sm bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition font-medium"
-            >
-              View Drafts
-            </Link>
-            <button
-              onClick={syncNow}
-              className="px-4 py-2 text-sm border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 transition"
-            >
-              Sync Instagram
-            </button>
-          </div>
-        </div>
-      ) : (
-        <>
-          {/* KPI Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white rounded-xl border border-gray-100 p-5">
-              <p className="text-sm text-gray-500 font-medium">Total Posts</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">{summary.totalPosts}</p>
-            </div>
-            <div className="bg-white rounded-xl border border-gray-100 p-5">
-              <div className="flex items-center gap-1">
-                <p className="text-sm text-gray-500 font-medium">Total Reach</p>
-                {summary.totalReach > 0 ? (
-                  <TrendingUp className="w-3 h-3 text-green-500" />
-                ) : null}
-              </div>
-              <p className="text-2xl font-bold text-gray-900 mt-1">{formatCount(summary.totalReach)}</p>
-            </div>
-            <div className="bg-white rounded-xl border border-gray-100 p-5">
-              <p className="text-sm text-gray-500 font-medium">Total Likes</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">{formatCount(summary.totalLikes)}</p>
-            </div>
-            <div className="bg-white rounded-xl border border-gray-100 p-5">
-              <div className="flex items-center gap-1">
-                <p className="text-sm text-gray-500 font-medium">Avg Engagement</p>
-                {summary.avgEngagement > 0 ? (
-                  <TrendingUp className="w-3 h-3 text-green-500" />
-                ) : null}
-              </div>
-              <p className="text-2xl font-bold text-gray-900 mt-1">{summary.avgEngagement}%</p>
-            </div>
-          </div>
-
-          {/* Secondary stats */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {[
-              { label: "Comments", value: formatCount(summary.totalComments), icon: MessageCircle },
-              { label: "Saves", value: formatCount(summary.totalSaves), icon: Bookmark },
-              { label: "Impressions", value: formatCount(summary.totalImpressions), icon: Eye },
-              { label: "Followers", value: formatCount(summary.followerCount), icon: Heart },
-            ].map(({ label, value, icon: Icon }) => (
-              <div key={label} className="bg-white rounded-xl border border-gray-100 p-4 flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-gray-50 flex items-center justify-center">
-                  <Icon className="w-4 h-4 text-gray-500" />
-                </div>
-                <div>
-                  <p className="text-xs text-gray-400">{label}</p>
-                  <p className="text-sm font-semibold text-gray-800">{value}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Posts Table */}
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Recent Posts</h2>
-            <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-100">
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Post</th>
-                    <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Type</th>
-                    <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">❤️</th>
-                    <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">💬</th>
-                    <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">🔖</th>
-                    <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">👁️</th>
-                    <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Date</th>
-                    <th className="px-4 py-3"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {posts.map((post) => (
-                    <tr key={post.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50 transition">
-                      <td className="px-4 py-3 max-w-xs">
-                        <p className="text-gray-800 line-clamp-2 text-xs">{post.caption || "(no caption)"}</p>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <span className="text-xs text-gray-500 font-medium">
-                          {post.postType?.replace("_", " ")}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right text-gray-700">{post.likesCount}</td>
-                      <td className="px-4 py-3 text-right text-gray-700">{post.commentsCount}</td>
-                      <td className="px-4 py-3 text-right text-gray-700">{post.savesCount}</td>
-                      <td className="px-4 py-3 text-right text-gray-700">{post.reach > 0 ? formatCount(post.reach) : "—"}</td>
-                      <td className="px-4 py-3 text-right text-gray-400 text-xs whitespace-nowrap">
-                        {post.publishedAt ? formatDate(post.publishedAt) : "—"}
-                      </td>
-                      <td className="px-4 py-3">
-                        {post.postUrl && (
-                          <a
-                            href={post.postUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-violet-600 hover:text-violet-700 transition"
-                          >
-                            <ExternalLink className="w-3.5 h-3.5" />
-                          </a>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </>
+      {activeTab === "analytics" && (
+        <AnalyticsContent summary={summary} posts={posts} syncing={syncing} syncNow={syncNow} />
       )}
     </div>
   );
@@ -494,7 +367,6 @@ function ResearchTab({ searchQuery, setSearchQuery, handleResearch, searching, h
           {hashtags.map((h) => (
             <span key={h.id} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-violet-50 border border-violet-100 text-violet-700 text-sm font-medium">
               #{h.name}
-              <span className="text-xs text-violet-400">{fmtCount(h.mediaCount)} posts</span>
             </span>
           ))}
         </div>
@@ -505,7 +377,7 @@ function ResearchTab({ searchQuery, setSearchQuery, handleResearch, searching, h
         <div key={group.hashtag} className="space-y-4">
           <div className="flex items-center gap-2">
             <h3 className="text-lg font-semibold text-gray-900">#{group.hashtag}</h3>
-            <span className="text-sm text-gray-400">{fmtCount(group.mediaCount)} posts</span>
+            <span className="text-sm text-gray-400">{group.posts.length} posts</span>
           </div>
 
           {group.posts.length === 0 ? (
@@ -513,30 +385,27 @@ function ResearchTab({ searchQuery, setSearchQuery, handleResearch, searching, h
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {group.posts.map((post: any) => (
-                <div key={post.id} className="bg-white rounded-xl border border-gray-100 p-4 flex gap-3">
-                  {post.thumbnail && (
-                    <img
-                      src={post.thumbnail}
-                      alt=""
-                      className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
-                    />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-gray-500 line-clamp-2 mb-2">{post.caption || "(no caption)"}</p>
+                <div key={post.id} className="bg-white rounded-xl border border-gray-100 p-4">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-8 h-8 rounded-lg bg-violet-50 flex items-center justify-center flex-shrink-0">
+                      <span className="text-xs font-bold text-violet-600">{post.mediaType === "IMAGE" ? "📷" : "🎬"}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-gray-500 line-clamp-2">{post.caption || "(no caption)"}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3 text-xs text-gray-600">
                       <span className="flex items-center gap-1">❤️ {fmtCount(post.likeCount)}</span>
                       <span className="flex items-center gap-1">💬 {fmtCount(post.commentsCount)}</span>
                     </div>
-                    {post.hashtags?.length > 0 && (
-                      <p className="text-xs text-gray-400 mt-1 truncate">{post.hashtags.join(" ")}</p>
-                    )}
                     <a
                       href={post.permalink}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs text-violet-600 hover:text-violet-700 mt-1.5"
+                      className="text-xs text-violet-600 hover:text-violet-700"
                     >
-                      View on Instagram <ExternalLink className="w-3 h-3" />
+                      View ↗
                     </a>
                   </div>
                 </div>
