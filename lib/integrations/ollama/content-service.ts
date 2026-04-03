@@ -471,7 +471,42 @@ async generateFeedPostVariants(
     // IMPORTANT: embed brand name and key brand identity directly in the
     // prompt field so the model sees it as primary context, not just in
     // the system prompt where it can be deprioritized.
-    const task = `Generate ${count} distinct Instagram feed post caption variants for the brand "${brand.name}" about the following topic:\n\n"${source}"\n\nBrand identity to strictly follow:\n- Products/ingredients: ${brand.description ?? brand.name}\n- Tone: ${TONE_LABELS[tone] ?? tone}\n${brand.styleKeywords.length > 0 ? `- Style keywords: ${brand.styleKeywords.join(", ")}` : ""}\n${brand.bannedPhrases.length > 0 ? `- NEVER mention these: ${brand.bannedPhrases.join(", ")}` : ""}\n\n${this.langLine(brand)}\n\nCRITICAL — write each caption to MAXIMIZE viral potential:\n- HOOK in LINE 1: must stop the scroll — curiosity gap, bold claim, relatable pain, or immediate emotion\n- LINE 2: deliver an unexpected value or perspective the reader hasn\'t seen before\n- BODY: be specific, not generic. Use real numbers, real stories, real contrast\n- CTA: feel like a friend suggesting something, not a salesperson\n- Hashtags: mix of broad reach (#) + niche community + branded\n- Every caption should make people want to: SAVE it, TAG a friend, or COMMENT\n\nEach variant must include:\n- caption: The FULLY REWRITTEN Instagram caption — hook + body + CTA as one cohesive, publish-ready piece (use line breaks for rhythm)\n- hook: The opening hook line only (1-2 sentences that stop the scroll)\n- body: The main body copy after the hook\n- cta: A call-to-action\n- hashtags: 5-15 relevant hashtags\n- altTextSuggestion: Accessibility alt text for the image\n- visualConceptPrompts: Array of exactly 3 detailed image generation prompts\n\nReturn a JSON object with a "variants" array containing ${count} variant objects. Do NOT mention any other brand or ingredient besides "${brand.name}".`;
+    const viralGuidelines = `VIRAL FORMULA — every caption MUST follow this exact structure:
+1. LINE 1 (HOOK): Choose ONE scroll-stopper type — (a) shocking stat/fact, (b) bold contrarian claim, (c) "most people are wrong about...", (d) relatable pain in fresh words, or (e) curiosity gap
+2. LINE 2: Immediately deliver unexpected value or twist — never waste line 2
+3. BODY: Real numbers, specific stories, honest contrast. Zero generic praise ("best quality", "amazing results")
+4. SOCIAL PROOF MOMENT: Credibility signal — study result, before/after, "X out of Y noticed...", real user truth
+5. SOFT SELL: ${brand.name} enters NATURALLY — not as an ad, as the obvious clever solution
+6. CTA people actually enjoy: Ask them to do something their peers are already doing (FOMO), or invite real questions
+
+🚫 NEVER use these dead phrases — they kill viral potential instantly:
+"تعرّف على" | "منتجاتنا" | "جرّبوا الآن" | "أفضل منتج" | "نتيجة مضمونة" | "اكتشفوا" | "سعر خاص" | "عرض محدود" | "هذا المنتج"
+If you catch yourself writing any of these — STOP and rewrite from line 1.`;
+
+    const task = `Write 3 Instagram feed post captions for "${brand.name}" about: "${source}"
+
+BRAND VOICE: ${TONE_LABELS[tone] ?? tone}
+${brand.styleKeywords.length > 0 ? `STYLE: ${brand.styleKeywords.join(", ")}` : ""}
+${brand.bannedPhrases.length > 0 ? `🚫 NEVER say these: ${brand.bannedPhrases.join(", ")}` : ""}
+${brand.ctaPreferences ? `CTA PREFERENCE: ${brand.ctaPreferences}` : ""}
+
+${this.langLine(brand)}
+
+${viralGuidelines}
+
+Each caption must feel like a real person sharing real results — not a brand account.
+The brand name "${brand.name}" should appear naturally once in each caption.
+
+Return a JSON object with a "variants" array containing 3 distinct caption variants (vary the HOOK ANGLE for each — e.g. one stat-based, one story-based, one contrarian). Each variant must include:
+- caption: Full Instagram caption — hook + body + CTA + hashtags, line breaks for rhythm, publish-ready
+- hook: The opening hook line only (1-2 sentences)
+- body: The main body copy
+- cta: A call-to-action
+- hashtags: 8-15 hashtags (mix of broad reach + niche community + 1 branded)
+- altTextSuggestion: Alt text for the image
+- visualConceptPrompts: Array of 3 image generation prompts
+
+Return ONLY valid JSON. Do NOT mention any other brand besides "${brand.name}".`;
 
     const request: OllamaGenerateRequest = {
       model: this.textModel,
