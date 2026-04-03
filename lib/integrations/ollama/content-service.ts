@@ -304,6 +304,26 @@ const HookEffectivenessResponseSchema = z.object({
 
 export type HookEffectivenessResponse = z.infer<typeof HookEffectivenessResponseSchema>;
 
+// ─── Viral Scoring Schema ─────────────────────────────────────────────────────
+
+const ViralScoringResponseSchema = z.object({
+  overallScore: z.number().min(0).max(100).describe("Overall viral potential 0-100"),
+  hookStrength: z.number().min(0).max(10).describe("Hook strength 0-10"),
+  clarity: z.number().min(0).max(10).describe("Content clarity 0-10"),
+  originality: z.number().min(0).max(10).describe("Uniqueness/originality 0-10"),
+  emotionalPull: z.number().min(0).max(10).describe("Emotional resonance 0-10"),
+  shareability: z.number().min(0).max(10).describe("Likelihood to be shared 0-10"),
+  saveWorthiness: z.number().min(0).max(10).describe("Value worth saving 0-10"),
+  commentTrigger: z.number().min(0).max(10).describe("Ability to spark comments 0-10"),
+  audienceFit: z.number().min(0).max(10).describe("Fits target audience 0-10"),
+  formatFit: z.number().min(0).max(10).describe("Format suitability 0-10"),
+  weaknesses: z.array(z.string()).describe("List of specific weaknesses"),
+  suggestions: z.array(z.string()).describe("Exact rewrite suggestions to improve viral potential"),
+  viralSummary: z.string().optional().describe("One paragraph summary of viral potential"),
+});
+
+export type ViralScoringResponse = z.infer<typeof ViralScoringResponseSchema>;
+
 // ─── Regenerate Section Schema ───────────────────────────────────────────────
 
 const RegenerateSectionResponseSchema = z.object({
@@ -578,6 +598,75 @@ Return a JSON object with:\n- conceptDirections: 3 different concept directions 
     };
 
     return this.client.generateJSON(request, HookEffectivenessResponseSchema);
+  }
+
+  // ─── 9. Viral Scoring ───────────────────────────────────────────────────────
+
+  async analyzeViralPotential(
+    caption: string,
+    cta: string | null,
+    hashtags: string[],
+    contentType: string,
+    tone: string,
+  ): Promise<ViralScoringResponse> {
+    const postContent = [
+      caption,
+      cta ? `\nCTA: ${cta}` : "",
+      hashtags.length > 0 ? `\nHashtags: ${hashtags.join(" ")}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    const prompt = `You are an expert Instagram viral marketing analyst. Evaluate the following Instagram post for its viral potential.
+
+POST CONTENT:
+${postContent}
+
+Content Type: ${contentType}
+Tone: ${tone}
+
+Evaluate each dimension on a scale of 0-10:
+
+1. **hookStrength** — Does the opening hook grab attention in the first 2 seconds?
+2. **clarity** — Is the message clear and easy to understand at a glance?
+3. **originality** — Is the content unique and fresh vs. generic?
+4. **emotionalPull** — Does it evoke emotion (curiosity, awe, humor, outrage, warmth)?
+5. **shareability** — Would someone share this with their friends/follower
+6. **saveWorthiness** — Is it valuable enough to save for later?
+7. **commentTrigger** — Does it invite engagement or spark debate?
+8. **audienceFit** — Does it match what the target audience cares about?
+9. **formatFit** — Is the content type (${contentType}) well-suited for the message?
+
+Also provide:
+- **overallScore**: A weighted 0-100 viral potential score (weigh: hook 20%, emotionalPull 20%, shareability 20%, commentTrigger 15%, saveWorthiness 15%, clarity 10%)
+- **weaknesses**: Array of 3-5 specific, actionable weaknesses
+- **suggestions**: Array of 3-5 exact rewrite suggestions with before/after examples
+
+Return ONLY valid JSON matching this schema:
+{
+  "overallScore": number (0-100),
+  "hookStrength": number (0-10),
+  "clarity": number (0-10),
+  "originality": number (0-10),
+  "emotionalPull": number (0-10),
+  "shareability": number (0-10),
+  "saveWorthiness": number (0-10),
+  "commentTrigger": number (0-10),
+  "audienceFit": number (0-10),
+  "formatFit": number (0-10),
+  "weaknesses": string[],
+  "suggestions": string[],
+  "viralSummary": string (optional)
+}`;
+
+    const request: OllamaGenerateRequest = {
+      model: this.textModel,
+      prompt,
+      disableThinking: this.disableThinking,
+      format: "json",
+    };
+
+    return this.client.generateJSON(request, ViralScoringResponseSchema);
   }
 }
 

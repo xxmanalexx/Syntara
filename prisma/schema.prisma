@@ -228,6 +228,7 @@ model Draft {
   readinessScore    Int? // 0–100
   brandScore        Int? // 0–100
   completenessScore Int? // 0–100
+  viralScore       Int? // 0–100 AI viral score
   duplicateFlag     Boolean @default(false)
 
   // Metadata
@@ -244,6 +245,7 @@ model Draft {
   mediaAssets   DraftMedia[]
   scheduledPost ScheduledPost?
   insights      ContentInsight[]
+  viralAnalysis ViralAnalysis?
   media         MediaAsset[]
 }
 
@@ -405,6 +407,32 @@ model ContentInsight {
   message     String
   data        Json?
   createdAt   DateTime    @default(now())
+
+  draft Draft @relation(fields: [draftId], references: [id], onDelete: Cascade)
+}
+
+model ViralAnalysis {
+  id        String   @id @default(cuid())
+  draftId   String   @unique
+  overallScore Int    // 0–100 viral score
+
+  hookStrength    Int  // 0–10
+  clarity         Int  // 0–10
+  originality     Int  // 0–10
+  emotionalPull   Int  // 0–10
+  shareability    Int  // 0–10
+  saveWorthiness  Int  // 0–10
+  commentTrigger  Int  // 0–10
+  audienceFit     Int  // 0–10
+  formatFit       Int  // 0–10
+
+  weaknesses   String[] // array of weakness descriptions
+  suggestions  String[] // array of exact rewrite suggestions
+  viralSummary String?  // one-paragraph summary
+
+  modelUsed    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   draft Draft @relation(fields: [draftId], references: [id], onDelete: Cascade)
 }

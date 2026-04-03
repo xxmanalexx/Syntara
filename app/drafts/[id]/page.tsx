@@ -38,6 +38,7 @@ interface Draft {
   readinessScore: number;
   brandScore: number;
   completenessScore: number;
+  viralScore: number | null;
   variants: DraftVariant[];
   brand: DraftBrand;
   insights: DraftInsight[];
@@ -69,7 +70,9 @@ export default function DraftEditorPage() {
   const [cta, setCta] = useState("");
   const [selectedVariantIdx, setSelectedVariantIdx] = useState(0);
   const [showVariants, setShowVariants] = useState(false);
-  const [activeTab, setActiveTab] = useState<"caption" | "visuals" | "preview" | "insights">("caption");
+  const [activeTab, setActiveTab] = useState<"caption" | "visuals" | "preview" | "insights" | "viral">("caption");
+  const [viralAnalysis, setViralAnalysis] = useState<any>(null);
+  const [scoringViral, setScoringViral] = useState(false);
   const [hashtagInput, setHashtagInput] = useState("");
   const [hashtags, setHashtags] = useState<string[]>([]);
 
@@ -92,6 +95,15 @@ export default function DraftEditorPage() {
       setCaption(d.caption ?? "");
       setCta(d.cta ?? "");
       setHashtags(d.hashtags ?? []);
+
+      // Load viral analysis
+      const vaRes = await fetch(`/api/drafts/${draftId}/score-viral`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (vaRes.ok) {
+        const vaData = await vaRes.json();
+        if (vaData.analysis) setViralAnalysis(vaData.analysis);
+      }
     } catch (e: unknown) {
       setFetchError(e instanceof Error ? e.message : "Unknown error");
     } finally {
@@ -406,6 +418,33 @@ export default function DraftEditorPage() {
           <Clock className="w-3.5 h-3.5 text-gray-400" />
           <span className="text-xs text-gray-500">~{charCount} chars</span>
         </div>
+        {draft.viralScore !== null && (
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-violet-50 border border-violet-200">
+            <Sparkles className="w-3.5 h-3.5 text-violet-500" />
+            <span className="text-xs text-violet-600 font-medium">Viral {draft.viralScore}</span>
+          </div>
+        )}
+        <button
+          onClick={async () => {
+            setScoringViral(true);
+            try {
+              const token = localStorage.getItem("syntara_token") ?? "";
+              const res = await fetch(`/api/drafts/${draftId}/score-viral`, {
+                method: "POST",
+                headers: { Authorization: `Bearer ${token}` },
+              });
+              const data = await res.json();
+              if (data.analysis) setViralAnalysis(data.analysis);
+            } finally {
+              setScoringViral(false);
+            }
+          }}
+          disabled={scoringViral}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-violet-600 text-white text-xs font-medium hover:bg-violet-700 transition disabled:opacity-50"
+        >
+          {scoringViral ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+          {scoringViral ? "Scoring..." : "Score Virally"}
+        </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -413,7 +452,7 @@ export default function DraftEditorPage() {
         <div className="space-y-4">
           {/* Tabs */}
           <div className="flex items-center gap-1 p-1 bg-gray-100 rounded-lg w-fit">
-            {(["caption", "visuals", "preview", "insights"] as const).map((tab) => (
+            {(["caption", "visuals", "preview", "insights", "viral"] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -834,6 +873,139 @@ export default function DraftEditorPage() {
             </div>
           )}
         </div>
+
+        {/* Viral Analysis Tab */}
+        {activeTab === "viral" && (
+          <div className="space-y-4">
+            {!viralAnalysis && !scoringViral && (
+              <div className="text-center py-12">
+                <Sparkles className="w-10 h-10 mx-auto mb-3 text-violet-400" />
+                <p className="text-base font-medium text-gray-700 mb-1">Viral Potential Score</p>
+                <p className="text-sm text-gray-400 mb-4">Analyze your caption across 9 viral dimensions to get actionable improvement suggestions.</p>
+                <button
+                  onClick={async () => {
+                    setScoringViral(true);
+                    try {
+                      const token = localStorage.getItem("syntara_token") ?? "";
+                      const res = await fetch(`/api/drafts/${draftId}/score-viral`, {
+                        method: "POST",
+                        headers: { Authorization: `Bearer ${token}` },
+                      });
+                      const data = await res.json();
+                      if (data.analysis) setViralAnalysis(data.analysis);
+                    } finally {
+                      setScoringViral(false);
+                    }
+                  }}
+                  className="px-5 py-2.5 rounded-xl bg-violet-600 text-white text-sm font-medium hover:bg-violet-700 transition"
+                >
+                  Run Viral Analysis
+                </button>
+              </div>
+            )}
+
+            {scoringViral && (
+              <div className="text-center py-12">
+                <Loader2 className="w-8 h-8 mx-auto mb-3 text-violet-500 animate-spin" />
+                <p className="text-sm text-gray-500">Analyzing viral potential...</p>
+              </div>
+            )}
+
+            {viralAnalysis && (
+              <>
+                {/* Overall Score */}
+                <div className="bg-white rounded-xl border border-gray-100 p-6 text-center">
+                  <p className="text-sm text-gray-500 mb-1">Overall Viral Score</p>
+                  <p className={cn(
+                    "text-5xl font-bold",
+                    viralAnalysis.overallScore >= 70 ? "text-green-600" :
+                    viralAnalysis.overallScore >= 40 ? "text-amber-600" : "text-red-500"
+                  )}>{viralAnalysis.overallScore}</p>
+                  <p className="text-xs text-gray-400 mt-1">out of 100</p>
+                </div>
+
+                {/* Dimension Scores */}
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    { label: "Hook Strength", key: "hookStrength" },
+                    { label: "Clarity", key: "clarity" },
+                    { label: "Originality", key: "originality" },
+                    { label: "Emotional Pull", key: "emotionalPull" },
+                    { label: "Shareability", key: "shareability" },
+                    { label: "Save Worthy", key: "saveWorthiness" },
+                    { label: "Comment Trigger", key: "commentTrigger" },
+                    { label: "Audience Fit", key: "audienceFit" },
+                    { label: "Format Fit", key: "formatFit" },
+                  ].map(({ label, key }) => {
+                    const val = viralAnalysis[key] as number;
+                    const pct = Math.round((val / 10) * 100);
+                    return (
+                      <div key={key} className="bg-white rounded-xl border border-gray-100 p-3">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs text-gray-500">{label}</span>
+                          <span className="text-sm font-bold text-gray-800">{val}/10</span>
+                        </div>
+                        <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                          <div
+                            className={cn(
+                              "h-full rounded-full transition-all",
+                              pct >= 70 ? "bg-green-500" : pct >= 40 ? "bg-amber-400" : "bg-red-400"
+                            )}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Weaknesses */}
+                {viralAnalysis.weaknesses?.length > 0 && (
+                  <div className="bg-white rounded-xl border border-gray-100 p-4">
+                    <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 text-amber-500" />
+                      Weaknesses
+                    </h3>
+                    <ul className="space-y-2">
+                      {viralAnalysis.weaknesses.map((w: string, i: number) => (
+                        <li key={i} className="flex items-start gap-2 text-sm text-gray-600">
+                          <span className="text-amber-400 mt-0.5">•</span>
+                          {w}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Suggestions */}
+                {viralAnalysis.suggestions?.length > 0 && (
+                  <div className="bg-white rounded-xl border border-gray-100 p-4">
+                    <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-violet-500" />
+                      Rewrite Suggestions
+                    </h3>
+                    <ul className="space-y-3">
+                      {viralAnalysis.suggestions.map((s: string, i: number) => (
+                        <li key={i} className="flex items-start gap-2 text-sm text-gray-600">
+                          <span className="text-violet-500 font-bold mt-0.5">{i + 1}.</span>
+                          {s}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Summary */}
+                {viralAnalysis.viralSummary && (
+                  <div className="bg-violet-50 rounded-xl border border-violet-100 p-4">
+                    <h3 className="text-sm font-semibold text-violet-700 mb-2">AI Summary</h3>
+                    <p className="text-sm text-violet-600">{viralAnalysis.viralSummary}</p>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
 
         {/* Right: Variants + Details */}
         <div className="space-y-4">
