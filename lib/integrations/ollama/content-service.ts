@@ -453,13 +453,25 @@ export class OllamaContentService {
   // ─── 1. Feed Post Variants ─────────────────────────────────────────────────
 
     private langLine(brand: BrandProfile): string {
-    const lang = brand.preferredLanguage
-      ? (`Language: Write ALL content in the "${brand.preferredLanguage}" language`)
-      : null;
-    const dial = brand.dialect ? (`Dialect register: "${brand.dialect}"`) : null;
-    if (!lang && !dial) return "";
-    const parts = [lang, dial].filter(Boolean).join("; ") + ".";
-    return `\n- ${parts}`;
+    // Build language + dialect + voice style guidance
+    const parts: string[] = [];
+
+    if (brand.preferredLanguage) {
+      parts.push(`Language: Write ALL captions and copy in "${brand.preferredLanguage}"`);
+    }
+
+    if (brand.dialect) {
+      parts.push(`Dialect: Use a ${brand.dialect} Arabic register — natural, not forced, the way an educated Gulf person actually speaks on social media`);
+    }
+
+    // Embed the brand's own voice guidance as explicit writing instructions
+    if (brand.voiceGuidance) {
+      parts.push(`Writing style (follow strictly): ${brand.voiceGuidance}`);
+    }
+
+    if (parts.length === 0) return "";
+
+    return "\n- " + parts.join("\n- ") + "\n";
   }
 
 async generateFeedPostVariants(
@@ -472,15 +484,22 @@ async generateFeedPostVariants(
     // prompt field so the model sees it as primary context, not just in
     // the system prompt where it can be deprioritized.
     const viralGuidelines = `VIRAL FORMULA — every caption MUST follow this exact structure:
-1. LINE 1 (HOOK): Choose ONE scroll-stopper type — (a) shocking stat/fact, (b) bold contrarian claim, (c) "most people are wrong about...", (d) relatable pain in fresh words, or (e) curiosity gap
-2. LINE 2: Immediately deliver unexpected value or twist — never waste line 2
-3. BODY: Real numbers, specific stories, honest contrast. Zero generic praise ("best quality", "amazing results")
-4. SOCIAL PROOF MOMENT: Credibility signal — study result, before/after, "X out of Y noticed...", real user truth
-5. SOFT SELL: ${brand.name} enters NATURALLY — not as an ad, as the obvious clever solution
-6. CTA people actually enjoy: Ask them to do something their peers are already doing (FOMO), or invite real questions
+1. LINE 1 (HOOK): Grab attention with a genuine observation, relatable moment, or interesting fact — never fear-mongering or over-the-top claims
+2. LINE 2: Immediately deliver useful value or a fresh perspective — never waste line 2
+3. BODY: Be specific. Real numbers, real stories, honest contrast between before/after. Avoid "best ever", "guaranteed", "amazing results" — use believable, measured language
+4. SOFT SELL: ${brand.name} enters naturally — the obvious, elegant solution, not a hard pitch
+5. CTA: Make it feel like a friend recommendation — a question, an invitation, or something that sparks genuine curiosity
 
-🚫 NEVER use these dead phrases — they kill viral potential instantly:
-"تعرّف على" | "منتجاتنا" | "جرّبوا الآن" | "أفضل منتج" | "نتيجة مضمونة" | "اكتشفوا" | "سعر خاص" | "عرض محدود" | "هذا المنتج"
+TONE OF VOICE (non-negotiable for this brand):
+- Write in polished Gulf Arabic — elevated but natural, the way Gulf women actually communicate on social media
+- Premium and clinical without being cold or corporate
+- Concise: every sentence earns its place — no padding or generic brand-speak
+- Persuasive through insight and elegance, NOT through urgency, fear, or exaggeration
+- Avoid: "لا错过", "مفيد جداً", "أفضل منتج", "نتيجة مضمونة", "جرّبوا الآن", "عرض خاص", "اكتشفوا"
+- Use: specific details, honest comparisons, quiet confidence, real benefit statements
+
+🚫 NEVER use these phrases — they destroy credibility and feel salesy:
+"تعرّف على" | "منتجاتنا" | "جرّبوا الآن" | "أفضل منتج" | "نتيجة مضمونة" | "اكتشفوا" | "سعر خاص" | "عرض محدود" | "هذا المنتج" | "لا يفوتكم" | "مفيد جداً"
 If you catch yourself writing any of these — STOP and rewrite from line 1.`;
 
     const task = `Write 3 Instagram feed post captions for "${brand.name}" about: "${source}"
