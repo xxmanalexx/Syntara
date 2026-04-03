@@ -33,19 +33,21 @@ export async function GET(req: Request) {
     const results = await Promise.all(
       hashtags.slice(0, 5).map(async (hashtag) => {
         try {
-          // Limit to 9 — top_media with caption field exceeds rate limit beyond ~9 posts
-          const rawPosts = await ig.getHashtagTopMedia(hashtag.id, 9);
-          const posts = rawPosts.map((m: any) => ({
-            id: m.id,
-            permalink: m.permalink,
-            caption: m.caption ? m.caption.slice(0, 120) + (m.caption.length > 120 ? "..." : "") : "",
-            likeCount: m.like_count,
-            commentsCount: m.comments_count,
-            engagement: (m.like_count ?? 0) + (m.comments_count ?? 0),
-            formattedLikes: formatCount(m.like_count ?? 0),
-            formattedComments: formatCount(m.comments_count ?? 0),
-            hashtags: m.caption ? (m.caption.match(/#\w+/g) ?? []).slice(0, 10) : [],
-          }));
+          const rawPosts = await ig.getHashtagTopMedia(hashtag.id, 5);
+          const posts = rawPosts.map((m: any) => {
+            const caption = m.caption ?? "";
+            return {
+              id: m.id,
+              permalink: m.permalink ?? `https://www.instagram.com/p/${m.id}/`,
+              caption: caption ? caption.slice(0, 120) + (caption.length > 120 ? "..." : "") : "",
+              likeCount: m.like_count ?? 0,
+              commentsCount: m.comments_count ?? 0,
+              engagement: (m.like_count ?? 0) + (m.comments_count ?? 0),
+              formattedLikes: formatCount(m.like_count ?? 0),
+              formattedComments: formatCount(m.comments_count ?? 0),
+              hashtags: caption ? (caption.match(/#\w+/g) ?? []).slice(0, 10) : [],
+            };
+          });
           return { hashtag: hashtag.name, posts };
         } catch {
           return { hashtag: hashtag.name, posts: [] };
