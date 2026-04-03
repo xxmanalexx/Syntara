@@ -201,8 +201,8 @@ export class OllamaClient {
       body.think = false;
     }
     console.log("[Ollama] model=", opts.model, "| promptLen=", String(opts.prompt).length, "| systemLen=", String(opts.system ?? "").length);
-    console.log("[Ollama] prompt:", String(opts.prompt).slice(0, 150));
-    console.log("[Ollama] system:", String(opts.system ?? "").slice(0, 300));
+    console.log("[Ollama] prompt:", String(opts.prompt).slice(0, 1200));
+    console.log("[Ollama] system:", String(opts.system ?? "").slice(0, 4000));
     const response = await fetchWithRetry<OllamaGenerateResponse>(
       `${this.baseUrl}/api/generate`,
       {
