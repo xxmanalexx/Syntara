@@ -35,103 +35,101 @@ export class PublishWorker {
     return { processed: duePosts.length, succeeded, failed };
   }
 
-  private async processPost(scheduledPost: any): Promise<{ success: boolean; instagramId?: string; permalink?: string; errorCode?: string; errorMessage?: string }> {
+  private async processPost(scheduledPost: any): Promise<{
+    success: boolean;
+    instagramId?: string;
+    permalink?: string;
+    errorCode?: string;
+    errorMessage?: string;
+  }> {
     const draft = scheduledPost.draft;
+    if (!draft) {
+      return { success: false, errorCode: "NO_DRAFT", errorMessage: "Draft not found for scheduled post" };
+    }
+
     const socialAccount = await prisma.socialAccount.findFirst({
       where: { workspaceId: scheduledPost.workspaceId, platform: "INSTAGRAM" },
     });
 
-    if (!socialAccount || !socialAccount.accessToken || !socialAccount.instagramId) {
+    if (!socialAccount?.accessToken) {
       return { success: false, errorCode: "NO_ACCOUNT", errorMessage: "No connected Instagram account" };
     }
 
+    const igUserId = socialAccount.instagramId ?? undefined;
+    if (!igUserId) {
+      return { success: false, errorCode: "NO_ACCOUNT", errorMessage: "Instagram account ID not found — please re-connect Instagram" };
+    }
     const igService = new InstagramPublishingService(socialAccount.accessToken);
-    const mediaAssets = draft.mediaAssets ?? [];
+
+    // Get media assets — DraftMedia has { draftId, assetId, isPrimary, sortOrder }
+    // The 'asset' relation is MediaAsset { id, url, mimeType, ... }
+    const rawMedia = draft.mediaAssets ?? [];
+    const mediaAssets = Array.isArray(rawMedia) ? rawMedia : [];
 
     try {
-      let result;
-
       if (draft.contentType === "FEED_POST") {
-        const primaryImage = mediaAssets.find((m: any) => m.isPrimary)?.asset ?? mediaAssets[0]?.asset;
-        if (!primaryImage) {
+        const mediaItem = mediaAssets.find((m: any) => m.isPrimary) ?? mediaAssets[0];
+        const asset = mediaItem?.asset;
+        if (!asset?.url) {
           await this.schedulingService.updateStatus(scheduledPost.id, "FAILED", { lastError: "No image attached to post" });
           return { success: false, errorCode: "NO_MEDIA", errorMessage: "No image attached to post" };
         }
 
-        result = await igService.publishFeedPost({
-          imageUrl: primaryImage.asset.url,
-          caption: draft.caption ?? "",
-          altText: draft.altText ?? undefined,
-        });
+        const result = await igService.publishFeedPost(
+          { imageUrl: asset.url as string, caption: draft.caption ?? "", altText: (draft.altText ?? undefined) as string | undefined },
+          igUserId
+        );
 
-        await prisma.draft.update({
-          where: { id: draft.id },
-          data: { status: "PUBLISHED", publishedAt: new Date() },
-        });
+        await prisma.draft.update({ where: { id: draft.id }, data: { status: "PUBLISHED", publishedAt: new Date() } });
+        await this.schedulingService.updateStatus(scheduledPost.id, "PUBLISHED", { instagramId: result.id, permalink: result.permalink });
+        return { success: true, instagramId: result.id, permalink: result.permalink };
 
       } else if (draft.contentType === "CAROUSEL") {
-        const imageUrls = mediaAssets.map((m: any) => m.asset.url);
+        const imageUrls = mediaAssets.map((m: any) => m.asset?.url).filter(Boolean) as string[];
         if (imageUrls.length < 2) {
           await this.schedulingService.updateStatus(scheduledPost.id, "FAILED", { lastError: "Carousel needs at least 2 images" });
           return { success: false, errorCode: "INSUFFICIENT_MEDIA", errorMessage: "Carousel needs at least 2 images" };
         }
 
-        result = await igService.publishCarousel({
-          imageUrls,
-          caption: draft.caption ?? "",
-          altText: draft.altText,
-        });
+        const result = await igService.publishCarousel(
+          { imageUrls, caption: (draft.caption ?? "") as string, altText: (draft.altText ?? undefined) as string | undefined },
+          igUserId
+        );
 
-        await prisma.draft.update({
-          where: { id: draft.id },
-          data: { status: "PUBLISHED", publishedAt: new Date() },
-        });
+        await prisma.draft.update({ where: { id: draft.id }, data: { status: "PUBLISHED", publishedAt: new Date() } });
+        await this.schedulingService.updateStatus(scheduledPost.id, "PUBLISHED", { instagramId: result.id, permalink: result.permalink });
+        return { success: true, instagramId: result.id, permalink: result.permalink };
 
       } else if (draft.contentType === "REEL") {
         await this.schedulingService.updateStatus(scheduledPost.id, "FAILED", { lastError: "Reel publishing not yet implemented" });
         return { success: false, errorCode: "NOT_IMPLEMENTED", errorMessage: "Reel publishing not yet implemented" };
 
       } else if (draft.contentType === "STORY") {
-        const primaryImage = mediaAssets.find((m: any) => m.isPrimary)?.asset ?? mediaAssets[0]?.asset;
-        if (!primaryImage) {
+        const mediaItem = mediaAssets.find((m: any) => m.isPrimary) ?? mediaAssets[0];
+        const asset = mediaItem?.asset;
+        if (!asset?.url) {
           await this.schedulingService.updateStatus(scheduledPost.id, "FAILED", { lastError: "No image attached to story" });
           return { success: false, errorCode: "NO_MEDIA", errorMessage: "No image attached to story" };
         }
 
-        result = await igService.publishStory({
-          imageUrl: primaryImage.asset.url,
-        });
+        const result = await igService.publishStory({ imageUrl: asset.url as string }, igUserId);
 
-        await prisma.draft.update({
-          where: { id: draft.id },
-          data: { status: "PUBLISHED", publishedAt: new Date() },
-        });
+        await prisma.draft.update({ where: { id: draft.id }, data: { status: "PUBLISHED", publishedAt: new Date() } });
+        await this.schedulingService.updateStatus(scheduledPost.id, "PUBLISHED", { instagramId: result.id, permalink: result.permalink });
+        return { success: true, instagramId: result.id, permalink: result.permalink };
 
       } else {
         await this.schedulingService.updateStatus(scheduledPost.id, "FAILED", { lastError: `Content type ${draft.contentType} not supported` });
         return { success: false, errorCode: "UNSUPPORTED_TYPE", errorMessage: `Content type ${draft.contentType} not supported` };
       }
-
-      await this.schedulingService.updateStatus(scheduledPost.id, "PUBLISHED", {
-        instagramId: result.id,
-        permalink: result.permalink,
-      });
-
-      return { success: true, instagramId: result.id, permalink: result.permalink };
     } catch (err: any) {
       const retryCount = (scheduledPost.retryCount ?? 0) + 1;
       const isRetryable = err.message?.includes("rate") || err.message?.includes("timeout") || err.message?.includes("retry");
 
       if (isRetryable && retryCount < 3) {
-        await this.schedulingService.updateStatus(scheduledPost.id, "SCHEDULED", {
-          lastError: err.message,
-          retryCount,
-        });
+        await this.schedulingService.updateStatus(scheduledPost.id, "SCHEDULED", { lastError: err.message, retryCount });
       } else {
-        await this.schedulingService.updateStatus(scheduledPost.id, "FAILED", {
-          lastError: err.message,
-          retryCount,
-        });
+        await this.schedulingService.updateStatus(scheduledPost.id, "FAILED", { lastError: err.message, retryCount });
       }
 
       return { success: false, errorCode: err.code ?? "UNKNOWN", errorMessage: err.message };

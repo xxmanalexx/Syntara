@@ -34,7 +34,9 @@ export class InstagramPublishingService {
     req: { imageUrl: string; caption: string; altText?: string },
     igUserIdOverride?: string
   ): Promise<InstagramPublishResponse> {
-    const igUserId = igUserIdOverride ?? await this.resolveIgUserId();
+    // Prefer override (stored instagramId), only fallback to /me/accounts if not provided
+    const igUserId = igUserIdOverride ?? await this.resolveIgUserId().catch(() => igUserIdOverride ?? "");
+    if (!igUserId) throw new Error("No Instagram User ID available. Please re-connect your Instagram account.");
     const publishReq: InstagramPublishingRequest = {
       caption: req.caption,
       imageUrls: [req.imageUrl],
@@ -52,12 +54,13 @@ export class InstagramPublishingService {
     caption: string;
     coverIndex?: number;
     altText?: string;
-  }): Promise<InstagramPublishResponse> {
+  }, igUserIdOverride?: string): Promise<InstagramPublishResponse> {
     if (req.imageUrls.length < 2 || req.imageUrls.length > 10) {
       throw new Error("Carousel must have between 2 and 10 images.");
     }
 
-    const igUserId = await this.resolveIgUserId();
+    const igUserId = igUserIdOverride ?? await this.resolveIgUserId().catch(() => igUserIdOverride ?? "");
+    if (!igUserId) throw new Error("No Instagram User ID available. Please re-connect your Instagram account.");
 
     // Create child media containers first
     const childIds: string[] = [];
@@ -145,8 +148,9 @@ export class InstagramPublishingService {
   async publishStory(req: {
     imageUrl: string;
     stickerConfig?: Record<string, unknown>;
-  }): Promise<InstagramPublishResponse> {
-    const igUserId = await this.resolveIgUserId();
+  }, igUserIdOverride?: string): Promise<InstagramPublishResponse> {
+    const igUserId = igUserIdOverride ?? await this.resolveIgUserId().catch(() => igUserIdOverride ?? "");
+    if (!igUserId) throw new Error("No Instagram User ID available. Please re-connect your Instagram account.");
 
     const storyParams = new URLSearchParams({
       access_token: this.accessToken,

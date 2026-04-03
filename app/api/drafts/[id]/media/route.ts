@@ -32,18 +32,23 @@ export async function POST(
       return NextResponse.json({ error: "imageUrl is required" }, { status: 400 });
     }
 
-    // Validate the URL actually points to an image file
+    // Validate the URL points to a real image file (follow redirects)
     let isImage = false;
     try {
-      const res = await fetch(imageUrl, { method: "HEAD", signal: AbortSignal.timeout(5000) });
+      const res = await fetch(imageUrl, {
+        method: "GET",
+        redirect: "follow",
+        signal: AbortSignal.timeout(8000),
+      });
       const contentType = res.headers.get("content-type") ?? "";
+      // Must be a direct image, not an HTML page or redirect chain ending in a page
       isImage = contentType.startsWith("image/");
     } catch {
       // If we can't verify, allow it (might be behind a firewall or use auth)
     }
     if (!isImage) {
       return NextResponse.json(
-        { error: "The URL does not appear to be a valid image. Please use a direct image link (e.g. ending in .jpg, .png, .webp) or a URL that serves an image file." },
+        { error: "The URL does not appear to be a valid image file. Please use a direct image link (ending in .jpg, .png, .webp, .gif) that serves an image directly, not a webpage." },
         { status: 400 }
       );
     }
