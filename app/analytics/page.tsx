@@ -418,7 +418,7 @@ function ResearchTab({ searchQuery, setSearchQuery, handleResearch, searching, h
 
                   {/* Link to hashtag on IG */}
                   <a
-                    href={post.permalink}
+                    href={"https://www.google.com/search?q=site:instagram.com+" + post.id}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex-shrink-0 text-xs text-violet-600 hover:text-violet-700 border border-violet-100 hover:border-violet-300 rounded-lg px-3 py-2 transition font-medium"
