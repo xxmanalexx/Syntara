@@ -23,37 +23,29 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "No Instagram account connected" }, { status: 400 });
   }
 
-  if (!query) {
-    return NextResponse.json({ hashtags: [], results: [] });
-  }
+  if (!query) return NextResponse.json({ hashtags: [], results: [] });
 
   try {
     const ig = new InstagramInsightsService(socialAccount.accessToken, socialAccount.instagramId ?? "");
 
-    // Search for matching hashtags
     const hashtags = await ig.searchHashtags(query);
 
-    // For each, get top posts by engagement
     const results = await Promise.all(
       hashtags.slice(0, 5).map(async (hashtag) => {
         try {
-          const posts = await ig.getHashtagRecentMedia(hashtag.id, 20);
-          return {
-            hashtag: hashtag.name,
-            posts: posts.map((m: any) => ({
-              id: m.id,
-              permalink: m.permalink,
-              caption: m.caption ? m.caption.slice(0, 120) + "..." : "",
-              likeCount: m.like_count,
-              commentsCount: m.comments_count,
-              mediaType: m.media_type,
-              timestamp: m.timestamp,
-              engagement: m.like_count + m.comments_count,
-              formattedLikes: formatCount(m.like_count),
-              formattedComments: formatCount(m.comments_count),
-              hashtags: m.caption ? (m.caption.match(/#\w+/g) ?? []).slice(0, 10) : [],
-            })),
-          };
+          const rawPosts = await ig.getHashtagTopMedia(hashtag.id, 20);
+          const posts = rawPosts.map((m: any) => ({
+            id: m.id,
+            permalink: m.permalink,
+            caption: m.caption ? m.caption.slice(0, 120) + (m.caption.length > 120 ? "..." : "") : "",
+            likeCount: m.like_count,
+            commentsCount: m.comments_count,
+            engagement: (m.like_count ?? 0) + (m.comments_count ?? 0),
+            formattedLikes: formatCount(m.like_count ?? 0),
+            formattedComments: formatCount(m.comments_count ?? 0),
+            hashtags: m.caption ? (m.caption.match(/#\w+/g) ?? []).slice(0, 10) : [],
+          }));
+          return { hashtag: hashtag.name, posts };
         } catch {
           return { hashtag: hashtag.name, posts: [] };
         }

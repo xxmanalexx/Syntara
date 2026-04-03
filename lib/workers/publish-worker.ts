@@ -47,6 +47,24 @@ export class PublishWorker {
       return { success: false, errorCode: "NO_DRAFT", errorMessage: "Draft not found for scheduled post" };
     }
 
+    // Apply variant data if a specific variant was selected for this schedule
+    let caption = draft.caption ?? "";
+    let ctaText = "";
+    let hashtags = "";
+    if (scheduledPost.variantId && Array.isArray(draft.variants)) {
+      const variant = draft.variants.find((v: any) => v.id === scheduledPost.variantId);
+      if (variant?.data) {
+        const vd = variant.data as Record<string, string>;
+        if (vd.platform) {
+          caption = vd.caption ?? caption;
+          ctaText = vd.cta ?? "";
+          hashtags = vd.hashtags ?? "";
+        }
+      }
+    }
+    // Build the full caption: [caption][\n\n][cta][\n\n][hashtags]
+    const fullCaption = [caption, ctaText, hashtags].filter(Boolean).join("\n\n");
+
     const socialAccount = await prisma.socialAccount.findFirst({
       where: { workspaceId: scheduledPost.workspaceId, platform: "INSTAGRAM" },
     });
@@ -76,7 +94,7 @@ export class PublishWorker {
         }
 
         const result = await igService.publishFeedPost(
-          { imageUrl: asset.url as string, caption: draft.caption ?? "", altText: (draft.altText ?? undefined) as string | undefined },
+          { imageUrl: asset.url as string, caption: fullCaption, altText: (draft.altText ?? undefined) as string | undefined },
           igUserId
         );
 
@@ -92,7 +110,7 @@ export class PublishWorker {
         }
 
         const result = await igService.publishCarousel(
-          { imageUrls, caption: (draft.caption ?? "") as string, altText: (draft.altText ?? undefined) as string | undefined },
+          { imageUrls, caption: fullCaption, altText: (draft.altText ?? undefined) as string | undefined },
           igUserId
         );
 

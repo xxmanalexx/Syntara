@@ -388,7 +388,7 @@ function ResearchTab({ searchQuery, setSearchQuery, handleResearch, searching, h
                 <div key={post.id} className="bg-white rounded-xl border border-gray-100 p-4">
                   <div className="flex items-center gap-3 mb-2">
                     <div className="w-8 h-8 rounded-lg bg-violet-50 flex items-center justify-center flex-shrink-0">
-                      <span className="text-xs font-bold text-violet-600">{post.mediaType === "IMAGE" ? "📷" : "🎬"}</span>
+                      <span className="text-xs font-bold text-violet-600">#</span>
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs text-gray-500 line-clamp-2">{post.caption || "(no caption)"}</p>

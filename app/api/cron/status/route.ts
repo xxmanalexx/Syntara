@@ -17,16 +17,20 @@ export async function GET(req: Request) {
 
   try {
     const { execSync } = require("child_process");
-    const list = execSync("pm2 list --json 2>/dev/null", { timeout: 5000 }).toString();
-    const pm2List = JSON.parse(list);
+    const raw = execSync("pm2 jlist 2>&1", { timeout: 5000 }).toString();
+    const pm2List = JSON.parse(raw);
     const cronProc = pm2List.find((p: any) => p.name === "syntara-cron");
     const running = !!(cronProc && cronProc.pm2_env?.status === "online");
 
-    // Read recent logs
+    // Read recent logs from stdout
     let recentLogs: string[] = [];
     try {
       const logOut = execSync("pm2 logs syntara-cron --lines 10 --nostream 2>&1", { timeout: 5000 }).toString();
-      recentLogs = logOut.split("\n").filter(Boolean).slice(-10).map((l: string) => l.replace(/^\[\s*\d+\]\s*/, ""));
+      recentLogs = logOut
+        .split("\n")
+        .filter(Boolean)
+        .slice(-10)
+        .map((l: string) => l.replace(/^\[\s*\d+\]\s*/, ""));
     } catch {}
 
     return NextResponse.json({ running, recentLogs });

@@ -304,10 +304,34 @@ export default function DraftEditorPage() {
               <h3 className="text-lg font-semibold text-gray-900">Schedule Post</h3>
               <button onClick={() => setShowScheduleModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
             </div>
-            <p className="text-sm text-gray-500">Choose when to publish this post to Instagram.</p>
-            <div className="grid grid-cols-2 gap-3">
+
+            {draft.variants.length > 1 && (
               <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase mb-1.5">Date</label>
+                <label className="block text-xs font-semibold text-gray-500 uppercase mb-1.5">Variant</label>
+                <div className="flex gap-2">
+                  {draft.variants.map((v, i) => {
+                    const label = (v.data as Record<string, string>).platform || `Variant ${i + 1}`;
+                    return (
+                      <button
+                        key={v.id}
+                        onClick={() => setSelectedVariantIdx(i)}
+                        className={`flex-1 px-3 py-2 rounded-lg border text-xs font-medium transition ${
+                          selectedVariantIdx === i
+                            ? "border-violet-500 bg-violet-50 text-violet-700"
+                            : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1.5">Date & Time</label>
+              <div className="grid grid-cols-2 gap-3">
                 <input
                   type="date"
                   value={scheduleDate}
@@ -315,9 +339,6 @@ export default function DraftEditorPage() {
                   min={new Date().toISOString().split("T")[0]}
                   className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-violet-500 outline-none"
                 />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase mb-1.5">Time</label>
                 <input
                   type="time"
                   value={scheduleTime}
@@ -326,6 +347,7 @@ export default function DraftEditorPage() {
                 />
               </div>
             </div>
+
             <div className="flex gap-3 pt-2">
               <button
                 onClick={() => setShowScheduleModal(false)}
@@ -341,10 +363,15 @@ export default function DraftEditorPage() {
                   if (scheduledAt <= new Date()) { alert("Schedule must be in the future"); return; }
                   setScheduling(true);
                   const token = getToken();
+                  const selectedVariant = draft.variants[selectedVariantIdx];
                   const res = await fetch("/api/schedules", {
                     method: "POST",
                     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-                    body: JSON.stringify({ draftId: draft.id, scheduledAt: scheduledAt.toISOString() }),
+                    body: JSON.stringify({
+                      draftId: draft.id,
+                      variantId: selectedVariant.id,
+                      scheduledAt: scheduledAt.toISOString(),
+                    }),
                   });
                   const data = await res.json();
                   setScheduling(false);

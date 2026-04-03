@@ -342,6 +342,7 @@ model PromptVersion {
 model ScheduledPost {
   id            String        @id @default(cuid())
   draftId       String        @unique
+  variantId     String?
   workspaceId   String
   scheduledAt   DateTime
   publishStatus PublishStatus @default(SCHEDULED)

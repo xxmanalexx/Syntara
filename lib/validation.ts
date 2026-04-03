@@ -156,6 +156,7 @@ export type UpdateDraftInput = z.infer<typeof updateDraftSchema>;
 
 export const schedulePostSchema = z.object({
   draftId: z.string().cuid("Invalid draft ID"),
+  variantId: z.string().cuid("Invalid variant ID").optional(),
   scheduledAt: z.string().datetime().refine(
     (d) => new Date(d) > new Date(),
     "Scheduled time must be in the future"

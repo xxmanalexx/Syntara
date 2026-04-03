@@ -23,7 +23,6 @@ export class InstagramInsightsService {
     const results: Array<{ id: string; name: string }> = [];
     for (const item of data.data ?? []) {
       try {
-        // Fetch each hashtag's name
         const info = await this.graphFetch(`/${item.id}`, { fields: "id,name" });
         results.push({ id: item.id, name: info.name ?? keyword });
       } catch {
@@ -33,18 +32,12 @@ export class InstagramInsightsService {
     return results;
   }
 
-  /** Get recent media for a hashtag — returns posts sorted by engagement */
-  async getHashtagRecentMedia(hashtagId: string, limit = 25): Promise<any[]> {
-    const data = await this.graphFetch(`/${hashtagId}/recent_media`, {
+  /** Get top media for a hashtag — already sorted by IG's engagement algorithm */
+  async getHashtagTopMedia(hashtagId: string, limit = 25): Promise<any[]> {
+    const data = await this.graphFetch(`/${hashtagId}/top_media`, {
       user_id: this.igUserId,
-      fields: "id,caption,like_count,comments_count,permalink,media_type,timestamp",
+      fields: "id,like_count,comments_count,caption,permalink",
     });
-
-    return (data.data ?? [])
-      .filter((m: any) => m.media_type !== "VIDEO")
-      .sort((a: any, b: any) =>
-        (b.like_count + b.comments_count) - (a.like_count + a.comments_count)
-      )
-      .slice(0, limit);
+    return (data.data ?? []).slice(0, limit);
   }
 }

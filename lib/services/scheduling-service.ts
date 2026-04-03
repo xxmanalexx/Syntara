@@ -3,18 +3,19 @@ import type { ScheduledPost, PublishResult } from "@/types";
 import type { PublishStatus } from "@/types";
 
 export class SchedulingService {
-  async schedule(draftId: string, scheduledAt: Date): Promise<ScheduledPost> {
+  async schedule(draftId: string, scheduledAt: Date, variantId?: string): Promise<ScheduledPost> {
     const existing = await prisma.scheduledPost.findUnique({ where: { draftId } });
     if (existing) {
       return prisma.scheduledPost.update({
         where: { draftId },
-        data: { scheduledAt, publishStatus: "SCHEDULED", lastError: null },
+        data: { scheduledAt, variantId: variantId ?? null, publishStatus: "SCHEDULED", lastError: null },
       }) as Promise<ScheduledPost>;
     }
 
     return prisma.scheduledPost.create({
       data: {
         draftId,
+        variantId: variantId ?? null,
         workspaceId: (await prisma.draft.findUnique({ where: { id: draftId } }))!.workspaceId,
         scheduledAt,
         publishStatus: "SCHEDULED",
@@ -29,7 +30,7 @@ export class SchedulingService {
   async getByWorkspace(workspaceId: string): Promise<ScheduledPost[]> {
     return prisma.scheduledPost.findMany({
       where: { workspaceId },
-      include: { draft: { include: { brand: true, mediaAssets: { include: { asset: true } } } } },
+      include: { draft: { include: { brand: true, mediaAssets: { include: { asset: true } }, variants: true } } },
       orderBy: { scheduledAt: "asc" },
     }) as Promise<ScheduledPost[]>;
   }
@@ -40,7 +41,7 @@ export class SchedulingService {
         publishStatus: "SCHEDULED",
         scheduledAt: { lte: now },
       },
-      include: { draft: { include: { brand: true, mediaAssets: { include: { asset: true } } } } },
+      include: { draft: { include: { brand: true, mediaAssets: { include: { asset: true } }, variants: true } } },
     }) as Promise<ScheduledPost[]>;
   }
 

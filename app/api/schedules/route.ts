@@ -13,8 +13,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
     }
 
-    const { draftId, scheduledAt } = parsed.data;
-    const scheduled = await schedulingService.schedule(draftId, new Date(scheduledAt));
+    const { draftId, variantId, scheduledAt } = parsed.data;
+    const scheduled = await schedulingService.schedule(draftId, new Date(scheduledAt), variantId);
     return NextResponse.json({ scheduled }, { status: 201 });
   } catch (err: any) {
     console.error("Schedule error:", err);
