@@ -54,7 +54,7 @@ export class InstagramInsightsService {
     try {
       const data = await this.graphFetch(`/${hashtagId}/recent_media`, {
         user_id: this.igUserId,
-        fields: "id,like_count,comments_count,caption",
+        fields: "id,like_count,comments_count,caption,permalink",
       });
       const posts = data.data ?? [];
       if (posts.length > 0) {
@@ -68,7 +68,7 @@ export class InstagramInsightsService {
     try {
       const data = await this.graphFetch(`/${hashtagId}/top_media`, {
         user_id: this.igUserId,
-        fields: "id,like_count,comments_count,caption",
+        fields: "id,like_count,comments_count,caption,permalink",
       });
       return this.mapPosts(data.data ?? []).sort((a, b) => b.engagement - a.engagement);
     } catch {
