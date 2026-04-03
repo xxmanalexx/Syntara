@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -27,7 +27,15 @@ const NAV = [
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [today, setToday] = useState("");
   const pathname = usePathname();
+
+  useEffect(() => {
+    const update = () => setToday(new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" }));
+    update();
+    const interval = setInterval(update, 60_000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -103,7 +111,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </svg>
           </button>
           <div className="flex items-center gap-4">
-            <div className="hidden sm:block text-sm text-gray-500">Wednesday, April 1</div>
+            <div className="hidden sm:block text-sm text-gray-500">{today}</div>
           </div>
         </header>
 

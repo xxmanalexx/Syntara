@@ -59,6 +59,10 @@ export default function DraftEditorPage() {
   const [publishing, setPublishing] = useState(false);
   const [publishResult, setPublishResult] = useState<{ id: string; permalink: string } | null>(null);
   const [publishError, setPublishError] = useState("");
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [scheduleDate, setScheduleDate] = useState("");
+  const [scheduleTime, setScheduleTime] = useState("12:00");
+  const [scheduling, setScheduling] = useState(false);
 
   // Editor state
   const [caption, setCaption] = useState("");
@@ -220,7 +224,7 @@ export default function DraftEditorPage() {
             {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
             {copied ? "Copied!" : "Copy caption"}
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition text-sm font-medium">
+          <button onClick={() => setShowScheduleModal(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition text-sm font-medium">
             <Calendar className="w-4 h-4" />
             Schedule
           </button>
@@ -277,6 +281,73 @@ export default function DraftEditorPage() {
         <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm flex items-center justify-between">
           <span>{publishError}</span>
           <button onClick={() => setPublishError("")} className="text-red-500 hover:text-red-700 ml-4">×</button>
+        </div>
+      )}
+
+      {/* Schedule Modal */}
+      {showScheduleModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">Schedule Post</h3>
+              <button onClick={() => setShowScheduleModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
+            </div>
+            <p className="text-sm text-gray-500">Choose when to publish this post to Instagram.</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase mb-1.5">Date</label>
+                <input
+                  type="date"
+                  value={scheduleDate}
+                  onChange={(e) => setScheduleDate(e.target.value)}
+                  min={new Date().toISOString().split("T")[0]}
+                  className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-violet-500 outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase mb-1.5">Time</label>
+                <input
+                  type="time"
+                  value={scheduleTime}
+                  onChange={(e) => setScheduleTime(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-violet-500 outline-none"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => setShowScheduleModal(false)}
+                className="flex-1 px-4 py-2.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 text-sm font-medium transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (!scheduleDate) { alert("Please select a date"); return; }
+                  const scheduledAt = new Date(`${scheduleDate}T${scheduleTime}`);
+                  if (isNaN(scheduledAt.getTime())) { alert("Invalid date/time"); return; }
+                  if (scheduledAt <= new Date()) { alert("Schedule must be in the future"); return; }
+                  setScheduling(true);
+                  const token = getToken();
+                  const res = await fetch("/api/schedules", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                    body: JSON.stringify({ draftId: draft.id, scheduledAt: scheduledAt.toISOString() }),
+                  });
+                  const data = await res.json();
+                  setScheduling(false);
+                  if (!res.ok) { alert(data.error ?? "Failed to schedule"); return; }
+                  setShowScheduleModal(false);
+                  setScheduleDate(""); setScheduleTime("12:00");
+                  router.push("/calendar");
+                }}
+                disabled={scheduling}
+                className="flex-1 px-4 py-2.5 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-700 transition disabled:opacity-50"
+              >
+                {scheduling ? "Scheduling..." : "Confirm Schedule"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

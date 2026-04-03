@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
 import { schedulePostSchema } from "@/lib/validation";
 import { SchedulingService } from "@/lib/services/scheduling-service";
 
@@ -26,7 +27,12 @@ export async function GET(req: Request) {
   const workspaceId = url.searchParams.get("workspaceId");
   if (!workspaceId) return NextResponse.json({ error: "workspaceId required" }, { status: 400 });
 
-  const posts = await schedulingService.getByWorkspace(workspaceId);
+  const posts = workspaceId === "all"
+    ? await prisma.scheduledPost.findMany({
+        include: { draft: { include: { brand: true } } },
+        orderBy: { scheduledAt: "asc" },
+      })
+    : await schedulingService.getByWorkspace(workspaceId);
   return NextResponse.json({ posts });
 }
 

@@ -81,6 +81,15 @@ export default function DashboardPage() {
       .catch(() => setHealthStatus({ ollama: false }));
 
     // Fetch real dashboard data
+    fetchDashboard();
+
+    // Refresh when tab becomes visible again (e.g. returning from publish)
+    const handleVisibility = () => { if (document.visibilityState === "visible") fetchDashboard(); };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, []);
+
+  function fetchDashboard() {
     fetch("/api/dashboard", {
       headers: { Authorization: `Bearer ${localStorage.getItem("syntara_token") ?? ""}` },
     })
@@ -92,7 +101,7 @@ export default function DashboardPage() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }
 
   if (loading) {
     return (
