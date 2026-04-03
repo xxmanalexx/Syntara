@@ -73,6 +73,7 @@ export default function DraftEditorPage() {
   const [activeTab, setActiveTab] = useState<"caption" | "visuals" | "preview" | "insights" | "viral">("caption");
   const [viralAnalysis, setViralAnalysis] = useState<any>(null);
   const [scoringViral, setScoringViral] = useState(false);
+  const [viralError, setViralError] = useState<string | null>(null);
   const [hashtagInput, setHashtagInput] = useState("");
   const [hashtags, setHashtags] = useState<string[]>([]);
 
@@ -427,6 +428,7 @@ export default function DraftEditorPage() {
         <button
           onClick={async () => {
             setScoringViral(true);
+            setViralError(null);
             try {
               const token = localStorage.getItem("syntara_token") ?? "";
               const res = await fetch(`/api/drafts/${draftId}/score-viral`, {
@@ -435,7 +437,11 @@ export default function DraftEditorPage() {
               });
               let data: any;
               try { data = await res.json(); } catch { data = {}; }
-              if (data.analysis) setViralAnalysis(data.analysis);
+              if (!res.ok) { setViralError(data.error ?? "Scoring failed"); return; }
+              if (data.analysis) { setViralAnalysis(data.analysis); setActiveTab("viral"); }
+              else setViralError("No analysis returned");
+            } catch (e: any) {
+              setViralError(e?.message ?? "Network error");
             } finally {
               setScoringViral(false);
             }
@@ -886,14 +892,20 @@ export default function DraftEditorPage() {
                 <button
                   onClick={async () => {
                     setScoringViral(true);
+                    setViralError(null);
                     try {
                       const token = localStorage.getItem("syntara_token") ?? "";
                       const res = await fetch(`/api/drafts/${draftId}/score-viral`, {
                         method: "POST",
                         headers: { Authorization: `Bearer ${token}` },
                       });
-                      const data = await res.json();
+                      let data: any;
+                      try { data = await res.json(); } catch { data = {}; }
+                      if (!res.ok) { setViralError(data.error ?? "Scoring failed"); return; }
                       if (data.analysis) setViralAnalysis(data.analysis);
+                      else setViralError("No analysis returned");
+                    } catch (e: any) {
+                      setViralError(e?.message ?? "Network error");
                     } finally {
                       setScoringViral(false);
                     }
@@ -909,6 +921,13 @@ export default function DraftEditorPage() {
               <div className="text-center py-12">
                 <Loader2 className="w-8 h-8 mx-auto mb-3 text-violet-500 animate-spin" />
                 <p className="text-sm text-gray-500">Analyzing viral potential...</p>
+              </div>
+            )}
+
+            {viralError && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
+                <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                {viralError}
               </div>
             )}
 
