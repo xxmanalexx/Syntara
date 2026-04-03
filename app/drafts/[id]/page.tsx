@@ -13,6 +13,7 @@ interface DraftVariant {
   id: string;
   name: string | null;
   isSelected: boolean;
+  viralScore: number | null;
   data: Record<string, unknown>;
 }
 
@@ -328,13 +329,21 @@ export default function DraftEditorPage() {
                       <button
                         key={v.id}
                         onClick={() => setSelectedVariantIdx(i)}
-                        className={`flex-1 px-3 py-2 rounded-lg border text-xs font-medium transition ${
+                        className={`flex-1 px-3 py-2 rounded-lg border text-xs font-medium transition gap-1 flex items-center justify-center ${
                           selectedVariantIdx === i
                             ? "border-violet-500 bg-violet-50 text-violet-700"
                             : "border-gray-200 text-gray-600 hover:bg-gray-50"
                         }`}
                       >
-                        {label}
+                        <span>{label}</span>
+                        {typeof v.viralScore === 'number' && (
+                          <span className={cn(
+                            "text-[10px] font-bold px-1 rounded",
+                            v.viralScore >= 70 ? "bg-green-100 text-green-700" :
+                            v.viralScore >= 40 ? "bg-amber-100 text-amber-700" :
+                            "bg-gray-100 text-gray-500"
+                          )}>{v.viralScore}</span>
+                        )}
                       </button>
                     );
                   })}
@@ -1052,9 +1061,19 @@ export default function DraftEditorPage() {
                     <span className="text-xs font-bold text-gray-500">
                       {v.name ?? `Variant ${String.fromCharCode(65 + i)}`}
                     </span>
-                    {selectedVariantIdx === i && (
-                      <Check className="w-3.5 h-3.5 text-violet-600" />
-                    )}
+                    <div className="flex items-center gap-1">
+                      {typeof v.viralScore === 'number' && (
+                        <span className={cn(
+                          "text-[10px] font-bold px-1.5 py-0.5 rounded",
+                          v.viralScore >= 70 ? "bg-green-100 text-green-700" :
+                          v.viralScore >= 40 ? "bg-amber-100 text-amber-700" :
+                          "bg-gray-100 text-gray-500"
+                        )}>{v.viralScore}</span>
+                      )}
+                      {selectedVariantIdx === i && (
+                        <Check className="w-3.5 h-3.5 text-violet-600" />
+                      )}
+                    </div>
                   </div>
                   <p className="text-xs text-gray-600 line-clamp-2">
                     {(captionVariantData(v).caption as string) ?? ""}
