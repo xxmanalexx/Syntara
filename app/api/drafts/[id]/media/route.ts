@@ -32,6 +32,22 @@ export async function POST(
       return NextResponse.json({ error: "imageUrl is required" }, { status: 400 });
     }
 
+    // Validate the URL actually points to an image file
+    let isImage = false;
+    try {
+      const res = await fetch(imageUrl, { method: "HEAD", signal: AbortSignal.timeout(5000) });
+      const contentType = res.headers.get("content-type") ?? "";
+      isImage = contentType.startsWith("image/");
+    } catch {
+      // If we can't verify, allow it (might be behind a firewall or use auth)
+    }
+    if (!isImage) {
+      return NextResponse.json(
+        { error: "The URL does not appear to be a valid image. Please use a direct image link (e.g. ending in .jpg, .png, .webp) or a URL that serves an image file." },
+        { status: 400 }
+      );
+    }
+
     // Verify draft belongs to this workspace
     const draft = await prisma.draft.findFirst({
       where: { id: draftId, workspaceId },
