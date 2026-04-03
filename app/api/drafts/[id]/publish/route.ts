@@ -77,10 +77,14 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     );
   }
 
-  // Build caption from draft
+  // Build caption from draft — CTA goes at the bottom, hashtags at the very end
   const caption = draft.caption ?? "";
+  const cta = draft.cta ?? "";
   const hashtags = draft.hashtags ?? [];
-  const fullCaption = hashtags.length > 0 ? `${caption}\n\n${hashtags.join(" ")}` : caption;
+  const parts = [caption];
+  if (cta) parts.push(cta);
+  if (hashtags.length > 0) parts.push(hashtags.join(" "));
+  const fullCaption = parts.join("\n\n");
 
   const imageUrl = draft.mediaAssets?.[0]?.asset?.url;
 

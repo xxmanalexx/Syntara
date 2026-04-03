@@ -140,9 +140,15 @@ export default function DraftEditorPage() {
     if (!variant || !draft) return;
     setSelectedVariantIdx(idx);
     const data = variant.data as Record<string, unknown>;
-    setCaption(typeof data.caption === "string" ? data.caption : caption);
-    setCta(typeof data.cta === "string" ? data.cta : cta);
+    const newCaption = typeof data.caption === "string" ? data.caption : caption;
+    const newCta = typeof data.cta === "string" ? data.cta : cta;
+    const newHashtags = Array.isArray(data.hashtags) ? data.hashtags : hashtags;
+    setCaption(newCaption);
+    setCta(newCta);
+    setHashtags(newHashtags);
     setShowVariants(false);
+    // Auto-save all fields from the variant
+    saveDraft({ caption: newCaption, cta: newCta, hashtags: newHashtags });
   }
 
   function addHashtag(tag: string) {
@@ -737,7 +743,8 @@ export default function DraftEditorPage() {
                       {draft.brand?.name ?? "brand"}
                     </p>
                     <p className="text-sm text-gray-700 line-clamp-6">{caption}</p>
-                    <p className="text-xs text-gray-400 mt-2">{hashtags.slice(0, 5).join(" ")}</p>
+                    {cta && <p className="text-sm font-semibold text-gray-900 mt-2">{cta}</p>}
+                    {hashtags.length > 0 && <p className="text-xs text-gray-400 mt-2">{hashtags.join(" ")}</p>}
                   </div>
                 </div>
               </div>

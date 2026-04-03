@@ -30,7 +30,13 @@ export async function GET(req: Request) {
     take: 50,
   });
 
-  return NextResponse.json({ drafts });
+  const enriched = drafts.map((d) => ({
+    ...d,
+    hasImage: d.mediaAssets.length > 0 && !!d.mediaAssets[0].asset?.url,
+    brandName: d.brand?.name,
+  }));
+
+  return NextResponse.json({ drafts: enriched });
 }
 
 export async function POST(req: Request) {
