@@ -54,11 +54,11 @@ export async function POST(req: Request) {
 
     const { brandId, contentType, sourceContent, tone, regenerateFromDraftId } = parsed.data;
 
-    // ── Resolve brand, content type, and source content for regeneration ─────────
+    // ── Resolve brand, content type, source content, and tone ──────────────────
     let resolvedBrandId: string = brandId ?? "";
     let resolvedSourceContent: string = sourceContent ?? "";
     let resolvedContentType: "FEED_POST" | "CAROUSEL" | "REEL" | "STORY" | undefined = contentType;
-    let resolvedTone: TonePreset = "CASUAL";
+    let resolvedTone: TonePreset = (parsed.data.tone as TonePreset) ?? "CASUAL";
 
     if (regenerateFromDraftId) {
       const existingDraft = await prisma.draft.findFirst({
@@ -70,6 +70,10 @@ export async function POST(req: Request) {
       }
       resolvedBrandId = (existingDraft.brandId ?? brandId ?? "") as string;
       resolvedSourceContent = (existingDraft.caption ?? sourceContent ?? "") as string;
+      // Preserve the original tone from the draft, unless overridden in request body
+      if (!parsed.data.tone && existingDraft.tone) {
+        resolvedTone = existingDraft.tone as TonePreset;
+      }
     }
 
     if (!resolvedBrandId) {
