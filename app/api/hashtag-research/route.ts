@@ -33,21 +33,18 @@ export async function GET(req: Request) {
     const results = await Promise.all(
       hashtags.slice(0, 5).map(async (hashtag) => {
         try {
-          const rawPosts = await ig.getHashtagTopMedia(hashtag.id, 5);
-          const posts = rawPosts.map((m: any) => {
-            const caption = m.caption ?? "";
-            return {
-              id: m.id,
-              permalink: m.permalink ?? `https://www.instagram.com/p/${m.id}/`,
-              caption: caption ? caption.slice(0, 120) + (caption.length > 120 ? "..." : "") : "",
-              likeCount: m.like_count ?? 0,
-              commentsCount: m.comments_count ?? 0,
-              engagement: (m.like_count ?? 0) + (m.comments_count ?? 0),
-              formattedLikes: formatCount(m.like_count ?? 0),
-              formattedComments: formatCount(m.comments_count ?? 0),
-              hashtags: caption ? (caption.match(/#\w+/g) ?? []).slice(0, 10) : [],
-            };
-          });
+          const rawPosts = await ig.getHashtagTopMedia(hashtag.id, 12);
+          const posts = rawPosts.map((m: any) => ({
+            id: m.id,
+            permalink: m.permalink,
+            caption: m.caption ?? "",
+            likeCount: m.likeCount ?? 0,
+            commentsCount: m.commentsCount ?? 0,
+            engagement: m.engagement ?? 0,
+            formattedLikes: formatCount(m.likeCount ?? 0),
+            formattedComments: formatCount(m.commentsCount ?? 0),
+            hashtags: m.hashtags ?? [],
+          }));
           return { hashtag: hashtag.name, posts };
         } catch {
           return { hashtag: hashtag.name, posts: [] };
