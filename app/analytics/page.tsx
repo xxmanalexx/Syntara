@@ -394,36 +394,36 @@ function ResearchTab({ searchQuery, setSearchQuery, handleResearch, searching, h
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {group.posts.map((post: any) => (
-                <div key={post.id} className="bg-white rounded-xl border border-gray-100 p-4 flex items-center gap-4">
-                  {/* Engagement score */}
-                  <div className="flex flex-col items-center justify-center w-16 flex-shrink-0">
+                <div key={post.id} className="bg-white rounded-xl border border-gray-100 p-4 flex items-start gap-4">
+                  {/* Engagement column */}
+                  <div className="flex flex-col items-center justify-center w-14 flex-shrink-0">
                     <span className="text-lg font-bold text-gray-900">{post.engagement > 999 ? Math.round(post.engagement/1000) + 'K' : post.engagement}</span>
                     <span className="text-xs text-gray-400">engaged</span>
                   </div>
 
-                  {/* Post info */}
+                  {/* Post content */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="px-1.5 py-0.5 rounded bg-violet-50 text-violet-600 text-xs font-medium">#{group.hashtag}</span>
-                      <span className="text-xs text-gray-400">Top post</span>
-                    </div>
-                    <div className="flex items-center gap-3 text-sm">
-                      <span className="text-gray-500">❤️</span>
-                      <span className="font-medium text-gray-700">{fmtCount(post.likeCount)}</span>
-                      <span className="text-gray-300">·</span>
-                      <span className="text-gray-500">💬</span>
-                      <span className="font-medium text-gray-700">{fmtCount(post.commentsCount)}</span>
+                    {post.caption
+                      ? <p className="text-sm text-gray-700 line-clamp-2 mb-2">{post.caption}</p>
+                      : <p className="text-sm text-gray-400 italic mb-2">No caption</p>
+                    }
+                    <div className="flex items-center gap-3 text-xs text-gray-500">
+                      <span>❤️ {fmtCount(post.likeCount)}</span>
+                      <span>💬 {fmtCount(post.commentsCount)}</span>
+                      {post.hashtags?.length > 0 && (
+                        <span className="text-violet-500 truncate">{post.hashtags.slice(0, 3).join(' ')}</span>
+                      )}
                     </div>
                   </div>
 
-                  {/* Link to hashtag on IG */}
+                  {/* View post */}
                   <a
-                    href={"https://www.google.com/search?q=site:instagram.com+" + post.id}
+                    href={post.permalink}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex-shrink-0 text-xs text-violet-600 hover:text-violet-700 border border-violet-100 hover:border-violet-300 rounded-lg px-3 py-2 transition font-medium"
+                    className="flex-shrink-0 text-xs text-white bg-violet-600 hover:bg-violet-700 rounded-lg px-3 py-2 transition font-medium"
                   >
-                    See on IG ↗
+                    View ↗
                   </a>
                 </div>
               ))}
