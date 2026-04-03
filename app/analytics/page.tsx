@@ -394,36 +394,37 @@ function ResearchTab({ searchQuery, setSearchQuery, handleResearch, searching, h
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {group.posts.map((post: any) => (
-                <div key={post.id} className="bg-white rounded-xl border border-gray-100 p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-xs font-semibold text-gray-500">Post #{post.id.slice(-6)}</span>
-                        <span className="px-1.5 py-0.5 rounded bg-violet-50 text-violet-600 text-xs font-medium">Top</span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-1 text-sm">
-                          <span className="text-gray-500">❤️</span>
-                          <span className="font-semibold text-gray-800">{fmtCount(post.likeCount)}</span>
-                        </div>
-                        <div className="flex items-center gap-1 text-sm">
-                          <span className="text-gray-500">💬</span>
-                          <span className="font-semibold text-gray-800">{fmtCount(post.commentsCount)}</span>
-                        </div>
-                        <div className="flex items-center gap-1 text-xs text-gray-400">
-                          ↑ {Math.round((post.likeCount / (post.engagement || 1)) * 100)}% likes
-                        </div>
-                      </div>
-                    </div>
-                    <a
-                      href={"https://www.instagram.com/explore/tags/" + group.hashtag}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex-shrink-0 text-xs text-violet-600 hover:text-violet-700 border border-violet-100 hover:border-violet-300 rounded-lg px-3 py-1.5 transition"
-                    >
-                      View on IG ↗
-                    </a>
+                <div key={post.id} className="bg-white rounded-xl border border-gray-100 p-4 flex items-center gap-4">
+                  {/* Engagement score */}
+                  <div className="flex flex-col items-center justify-center w-16 flex-shrink-0">
+                    <span className="text-lg font-bold text-gray-900">{post.engagement > 999 ? Math.round(post.engagement/1000) + 'K' : post.engagement}</span>
+                    <span className="text-xs text-gray-400">engaged</span>
                   </div>
+
+                  {/* Post info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="px-1.5 py-0.5 rounded bg-violet-50 text-violet-600 text-xs font-medium">#{group.hashtag}</span>
+                      <span className="text-xs text-gray-400">Top post</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-sm">
+                      <span className="text-gray-500">❤️</span>
+                      <span className="font-medium text-gray-700">{fmtCount(post.likeCount)}</span>
+                      <span className="text-gray-300">·</span>
+                      <span className="text-gray-500">💬</span>
+                      <span className="font-medium text-gray-700">{fmtCount(post.commentsCount)}</span>
+                    </div>
+                  </div>
+
+                  {/* Link to hashtag on IG */}
+                  <a
+                    href={"https://www.instagram.com/explore/tags/" + group.hashtag}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-shrink-0 text-xs text-violet-600 hover:text-violet-700 border border-violet-100 hover:border-violet-300 rounded-lg px-3 py-2 transition font-medium"
+                  >
+                    See on IG ↗
+                  </a>
                 </div>
               ))}
             </div>
