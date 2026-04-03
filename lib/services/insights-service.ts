@@ -32,45 +32,6 @@ export class InstagramInsightsService {
     return results;
   }
 
-  /**
-   * Get top posts for a hashtag sorted by engagement.
-   * Tries top_media first (sorted by IG algorithm). Falls back to
-   * recent_media if top_media returns 0 posts.
-   * Uses caption field — reliable up to ~20 posts.
-   * Returns posts with numeric ID URL (https://www.instagram.com/p/{id}/).
-   */
-  async getHashtagTopMedia(hashtagId: string, limit = 20): Promise<any[]> {
-    try {
-      const data = await this.graphFetch(`/${hashtagId}/top_media`, {
-        user_id: this.igUserId,
-        fields: "id,like_count,comments_count,caption",
-      });
-      const posts = data.data ?? [];
-      if (posts.length > 0) return this.mapPosts(posts);
-    } catch (err: any) {
-      // top_media failed — fall through to recent_media
-    }
-
-    // Fallback: recent posts (chronological, may have low engagement)
-    try {
-      const data = await this.graphFetch(`/${hashtagId}/recent_media`, {
-        user_id: this.igUserId,
-        fields: "id,like_count,comments_count,caption",
-      });
-      return (data.data ?? []).slice(0, limit).map((p: any) => ({
-        id: p.id,
-        likeCount: p.like_count ?? 0,
-        commentsCount: p.comments_count ?? 0,
-        engagement: (p.like_count ?? 0) + (p.comments_count ?? 0),
-        caption: p.caption ?? "",
-        permalink: "https://www.instagram.com/p/" + p.id + "/",
-        hashtags: (p.caption?.match(/#\w+/g) ?? []).slice(0, 10),
-      }));
-    } catch {
-      return [];
-    }
-  }
-
   private mapPosts(data: any[]): any[] {
     return data.map((p: any) => ({
       id: p.id,
@@ -81,5 +42,37 @@ export class InstagramInsightsService {
       permalink: "https://www.instagram.com/p/" + p.id + "/",
       hashtags: (p.caption?.match(/#\w+/g) ?? []).slice(0, 10),
     }));
+  }
+
+  /**
+   * Get recent posts for a hashtag (chronological).
+   * Uses recent_media with caption field — reliable up to 6+ posts.
+   * Falls back to top_media if recent_media returns 0 posts.
+   * Returns posts sorted by engagement (highest first).
+   */
+  async getHashtagTopMedia(hashtagId: string, limit = 6): Promise<any[]> {
+    try {
+      const data = await this.graphFetch(`/${hashtagId}/recent_media`, {
+        user_id: this.igUserId,
+        fields: "id,like_count,comments_count,caption",
+      });
+      const posts = data.data ?? [];
+      if (posts.length > 0) {
+        return this.mapPosts(posts).sort((a, b) => b.engagement - a.engagement);
+      }
+    } catch {
+      // fall through
+    }
+
+    // Fallback: top_media (sorted by IG algorithm)
+    try {
+      const data = await this.graphFetch(`/${hashtagId}/top_media`, {
+        user_id: this.igUserId,
+        fields: "id,like_count,comments_count,caption",
+      });
+      return this.mapPosts(data.data ?? []).sort((a, b) => b.engagement - a.engagement);
+    } catch {
+      return [];
+    }
   }
 }
