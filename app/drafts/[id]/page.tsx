@@ -433,7 +433,8 @@ export default function DraftEditorPage() {
                 method: "POST",
                 headers: { Authorization: `Bearer ${token}` },
               });
-              const data = await res.json();
+              let data: any;
+              try { data = await res.json(); } catch { data = {}; }
               if (data.analysis) setViralAnalysis(data.analysis);
             } finally {
               setScoringViral(false);
