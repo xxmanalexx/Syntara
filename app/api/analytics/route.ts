@@ -45,7 +45,7 @@ export async function GET(req: Request) {
   // Fetch snapshots + social account info in parallel
   const [snapshots, igAccountData] = await Promise.all([
     prisma.analyticsSnapshot.findMany({
-      where: { socialAccount: { workspaceId: primaryWsId } },
+      where: { socialAccount: { workspaceId: primaryWsId }, isDeleted: false },
       orderBy: { publishedAt: "desc" },
       take: 20,
     }),

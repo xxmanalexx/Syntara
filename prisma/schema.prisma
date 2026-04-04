@@ -395,6 +395,7 @@ model AnalyticsSnapshot {
   plays            Int?
   followerCount    Int?
   syncedAt         DateTime     @default(now())
+  isDeleted       Boolean      @default(false) // true when post is deleted from Instagram
 
   socialAccount SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
   workspace     Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)

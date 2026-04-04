@@ -123,6 +123,19 @@ export class AnalyticsSyncService {
       });
     }
 
+    // Mark posts that no longer exist on Instagram as deleted
+    const currentMediaIds = new Set(media.map((m) => m.id));
+    if (currentMediaIds.size > 0) {
+      await prisma.analyticsSnapshot.updateMany({
+        where: {
+          socialAccountId,
+          instagramMediaId: { notIn: [...currentMediaIds] },
+          isDeleted: false,
+        },
+        data: { isDeleted: true },
+      });
+    }
+
     return snapshots;
   }
 
