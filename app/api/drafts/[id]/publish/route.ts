@@ -83,7 +83,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const hashtags = draft.hashtags ?? [];
   const parts = [caption];
   if (cta) parts.push(cta);
-  if (hashtags.length > 0) parts.push(hashtags.join(" "));
+  if (hashtags.length > 0) parts.push(hashtags.map((h: string) => h.startsWith("#") ? h : `#${h}`).join(" "));
   const fullCaption = parts.join("\n\n");
 
   const imageUrl = draft.mediaAssets?.[0]?.asset?.url;
