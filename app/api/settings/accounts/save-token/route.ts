@@ -25,7 +25,7 @@ export async function POST(req: Request) {
     await prisma.socialAccount.upsert({
       where: { instagramId: resolvedIgId },
       create: {
-        userId: "system",
+        userId: null,
         workspaceId,
         instagramId: resolvedIgId,
         accessToken: token,
