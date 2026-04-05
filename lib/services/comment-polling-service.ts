@@ -95,6 +95,16 @@ export class CommentPollingService {
           },
         });
 
+        // Update conversation preview
+        await prisma.conversation.update({
+          where: { id: conversation.id },
+          data: {
+            last_message_at: new Date(comment.created_at),
+            last_message_preview: comment.text.slice(0, 100),
+            unread_count: { increment: 1 },
+          },
+        });
+
         // Mark event as handled
         await prisma.channelWebhookEvent.create({
           data: {

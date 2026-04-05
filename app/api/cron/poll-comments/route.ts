@@ -1,12 +1,19 @@
 import { NextResponse } from "next/server";
+import { jwtVerify } from "jose";
 import { runCommentPolling } from "@/lib/services/comment-polling-service";
 
+const JWT_SECRET = new TextEncoder().encode(
+  process.env["NEXTAUTH_SECRET"] ?? "dev-secret-change-in-production"
+);
+
 export async function POST(req: Request) {
-  // Simple auth: check cron secret
-  const authHeader = req.headers.get("authorization");
-  const cronSecret = process.env.CRON_SECRET ?? process.env.NEXTAUTH_SECRET ?? "";
-  if (authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const token = req.headers.get("authorization")?.replace("Bearer ", "");
+  if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  try {
+    await jwtVerify(token, JWT_SECRET);
+  } catch {
+    return NextResponse.json({ error: "Invalid token" }, { status: 401 });
   }
 
   try {
