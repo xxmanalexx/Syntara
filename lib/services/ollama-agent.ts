@@ -1,0 +1,237 @@
+import { z } from "zod";
+import { ollamaClient } from "@/lib/integrations/ollama/client";
+import { prisma } from "@/lib/db";
+import {
+  upsertConversationFromWebhook,
+  sendMessage,
+  sendInstagramReply,
+} from "@/lib/domain/inbox/service";
+import {
+  createLead,
+  logActivity,
+} from "@/lib/domain/leads/service";
+import { getOrCreatePipeline } from "@/lib/domain/leads/pipeline-service";
+import { decryptToken } from "@/lib/crypto";
+import type { ChannelType } from "@prisma/client";
+
+const intentSchema = z.object({
+  intent: z.string(),
+  extracted_fields: z.record(z.unknown()).optional(),
+  urgency: z.enum(["low", "medium", "high", "critical"]),
+  suggested_reply: z.string().optional(),
+  response_zone: z.enum(["GREEN", "YELLOW", "RED"]),
+  next_action: z.enum(["send_reply", "draft_for_approval", "create_task", "move_stage", "skip"]),
+  suggested_stage: z.string().optional(),
+  confidence: z.number().min(0).max(1),
+  should_create_lead: z.boolean().optional(),
+});
+
+type IntentOutput = z.infer<typeof intentSchema>;
+
+const STAGE_PROMPTS: Record<string, string> = {
+  NEW_INQUIRY: `You are a sales assistant handling a NEW INQUIRY. The prospect just reached out. Your goal: qualify them quickly, show interest, and gather basic info (name, budget/timeline if not already known). Keep responses warm, concise, and professional. 2-3 sentences max.`,
+  QUALIFYING: `You are a sales assistant in the QUALIFYING stage. Dig deeper into the prospect's needs, timeline, and budget. Ask one focused question at a time. Be helpful, not pushy. Keep replies to 2-3 sentences.`,
+  OFFER_SENT: `You are a sales assistant after an OFFER HAS BEEN SENT. Follow up professionally, address any questions, and nudge toward a decision without being aggressive. Keep it brief.`,
+  FOLLOW_UP_PENDING: `You are a sales assistant doing a FOLLOW UP. Re-engage the prospect warmly. Remind them of the value, answer any outstanding questions. Be friendly and persistent. 2 sentences.`,
+  READY_TO_BUY: `You are a sales assistant for a prospect READY TO BUY. Help them complete the purchase smoothly. Confirm details, express enthusiasm. Be concise and action-oriented.`,
+  WON: `You are a customer success assistant. Thank the customer warmly and ensure they have everything they need.`,
+  LOST: `You are a professional assistant. Handle this gracefully — acknowledge the outcome respectfully and keep the door open for future business.`,
+};
+
+function buildSystemPrompt(
+  businessFacts: string | null,
+  leadStatus: string | null,
+  leadStage: string | null,
+  contactName: string | null,
+  conversationHistory: string,
+  savedReplies: string,
+): string {
+  const stagePrompt = leadStatus ? (STAGE_PROMPTS[leadStatus] ?? STAGE_PROMPTS.NEW_INQUIRY) : STAGE_PROMPTS.NEW_INQUIRY;
+
+  const businessSection = businessFacts
+    ? `\n\nBUSINESS CONTEXT (use these facts only, never invent information):\n${businessFacts}`
+    : "";
+
+  const contactSection = contactName ? `\n\nCONTACT: ${contactName}` : "";
+
+  return `${stagePrompt}${businessSection}${contactSection}
+
+CONVERSATION HISTORY (most recent last):
+${conversationHistory}
+
+AVAILABLE SAVED REPLIES:
+${savedReplies || "(none)"}`;
+}
+
+export class LeadOrchestrator {
+  async processInboundMessage(conversationId: string, messageId: string): Promise<void> {
+    // 1. Load context
+    const message = await prisma.message.findUnique({
+      where: { id: messageId },
+      include: { conversation: { include: { contact: true, lead: true } } },
+    });
+    if (!message) throw new Error(`Message ${messageId} not found`);
+
+    const { conversation } = message;
+    const { contact, lead } = conversation;
+
+    const workspaceId = conversation.workspaceId;
+
+    // Get workspace settings for business facts
+    const settings = await prisma.workspaceSettings.findUnique({
+      where: { workspaceId },
+    });
+
+    // Get last 5 messages for history
+    const recentMessages = await prisma.message.findMany({
+      where: { conversationId },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+    });
+    const historyText = recentMessages
+      .reverse()
+      .map((m) => `[${m.direction}] ${m.content ?? "(media)"}`)
+      .join("\n");
+
+    // Get saved replies
+    const savedReplies = await prisma.savedReply.findMany({
+      where: { workspaceId, is_active: true },
+      orderBy: { title: "asc" },
+      take: 20,
+    });
+    const savedRepliesText = savedReplies
+      .map((r) => `[${r.shortcut ? r.shortcut + " — " : ""}${r.title}]: ${r.content}`)
+      .join("\n");
+
+    const systemPrompt = buildSystemPrompt(
+      settings?.businessFacts ?? null,
+      lead?.status ?? null,
+      lead?.pipelineStageId ?? null,
+      contact.displayName ?? contact.username ?? null,
+      historyText,
+      savedRepliesText,
+    );
+
+    const userPrompt = `Incoming message from ${contact.displayName ?? contact.username ?? "unknown"}: "${message.content ?? "(media/attachment)"}"
+
+Analyze this message and generate a suggested reply. Respond with JSON only.`;
+
+    // 2. Call Ollama
+    let parsed: IntentOutput;
+    try {
+      parsed = await ollamaClient.generateJSON(
+        {
+          model: settings?.ollamaTextModelGrowthOs ?? settings?.ollamaTextModel ?? "llama3.2:latest",
+          system: systemPrompt,
+          prompt: userPrompt,
+        },
+        intentSchema,
+        2,
+      );
+    } catch (err) {
+      console.error("[LeadOrchestrator] Ollama error:", err);
+      await prisma.message.update({
+        where: { id: messageId },
+        data: { ai_confidence: 0, response_zone: "RED" },
+      });
+      return;
+    }
+
+    // 3. Update message with AI data
+    await prisma.message.update({
+      where: { id: messageId },
+      data: {
+        ai_intent: parsed.intent,
+        ai_confidence: parsed.confidence,
+        ai_suggestion: parsed.suggested_reply,
+        response_zone: parsed.response_zone,
+      },
+    });
+
+    // 4. Determine auto-reply behavior
+    const shouldAutoReply = settings?.autoReplyEnabled === true;
+    const isGreenZone = parsed.response_zone === "GREEN";
+    const greenOnlyMode = settings?.autoReplyGreenOnly === true;
+
+    if (parsed.next_action === "skip") {
+      return;
+    }
+
+    if (parsed.should_create_lead && !lead) {
+      // Create lead from conversation
+      const pipelineStages = await getOrCreatePipeline(workspaceId);
+      const defaultStage = pipelineStages.find((s) => s.is_default) ?? pipelineStages[0];
+
+      const newLead = await createLead(workspaceId, {
+        contactId: contact.id,
+        conversationId,
+        source: "instagram_dm",
+        first_name: contact.displayName ?? undefined,
+        email: contact.email ?? undefined,
+        phone: contact.phone ?? undefined,
+        pipelineStageId: defaultStage?.id,
+      });
+
+      await logActivity(
+        workspaceId,
+        newLead.id,
+        "lead_created",
+        "Lead auto-created from first Instagram DM",
+        undefined,
+        conversationId,
+      );
+    }
+
+    if (parsed.suggested_reply) {
+      const status = (isGreenZone && (!greenOnlyMode || isGreenZone))
+        ? "APPROVED"
+        : "AI_DRAFT";
+
+      const outboundMessage = await sendMessage(
+        conversationId,
+        parsed.suggested_reply,
+        "OUTBOUND",
+        status,
+      );
+
+      // Auto-send if GREEN and auto-reply is on
+      if (isGreenZone && shouldAutoReply) {
+        const socialAccount = await prisma.socialAccount.findFirst({
+          where: { workspaceId, channel: conversation.channel as ChannelType },
+          select: { accessToken: true },
+        });
+
+        if (socialAccount?.accessToken) {
+          try {
+            const decryptedToken = decryptToken(socialAccount.accessToken);
+            const result = await sendInstagramReply(conversationId, outboundMessage, decryptedToken);
+            await prisma.message.update({
+              where: { id: outboundMessage.id },
+              data: { status: "SENT", message_id: result.message_id },
+            });
+          } catch (err) {
+            console.error("[LeadOrchestrator] Failed to send IG reply:", err);
+            await prisma.message.update({
+              where: { id: outboundMessage.id },
+              data: { status: "FAILED" },
+            });
+          }
+        }
+      }
+    }
+
+    // 5. Log activity
+    if (lead) {
+      await logActivity(
+        workspaceId,
+        lead.id,
+        "message_received",
+        `Inbound message analyzed: ${parsed.intent} (confidence: ${(parsed.confidence * 100).toFixed(0)}%, zone: ${parsed.response_zone})`,
+        { intent: parsed.intent, confidence: parsed.confidence, response_zone: parsed.response_zone, suggested_reply: parsed.suggested_reply },
+        conversationId,
+      );
+    }
+  }
+}
+
+export const leadOrchestrator = new LeadOrchestrator();

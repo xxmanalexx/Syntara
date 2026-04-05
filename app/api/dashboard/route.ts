@@ -24,29 +24,19 @@ export async function GET(req: Request) {
   }
 
   const userId = payload.sub;
-  const userWorkspaceId = payload.workspaceId;
+  const userWorkspaceId = payload.workspaceId ?? "";
+  const workspaceId = userWorkspaceId;
 
-  // Find the Instagram account linked to this user
-  // Prefer the one in the user's own workspace (siliconvalleyhub), fall back to any
-  const igAccount = await prisma.socialAccount.findFirst({
+  // Find the Instagram account for this workspace
+  // userId may be null (workspace-scoped accounts), so match by workspaceId
+  const account = await prisma.socialAccount.findFirst({
     where: {
-      userId,
+      workspaceId,
       platform: "INSTAGRAM",
       instagramId: { not: null },
-      // Ensure we pick an account whose workspaceId matches the user's JWT workspace
-      workspaceId: userWorkspaceId ?? undefined,
     },
     orderBy: { createdAt: "desc" },
   });
-
-  // Fall back: find any IG account for this user (ignore workspaceId mismatch)
-  const account = igAccount ?? await prisma.socialAccount.findFirst({
-    where: { userId, platform: "INSTAGRAM", instagramId: { not: null } },
-    orderBy: { createdAt: "desc" },
-  });
-
-  // Use the account's workspaceId as the authoritative workspace for all data queries
-  const workspaceId = account?.workspaceId ?? userWorkspaceId;
 
   if (!workspaceId) {
     return NextResponse.json({
@@ -152,6 +142,6 @@ export async function GET(req: Request) {
       postUrl: t.postUrl ?? null,
       publishedAt: t.publishedAt?.toISOString() ?? null,
     })),
-    igUsername: igAccount?.username ?? null,
+    igUsername: account?.username ?? null,
   });
 }
