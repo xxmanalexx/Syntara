@@ -16,24 +16,11 @@ export async function GET(req: Request) {
     const { payload } = await jwtVerify(token, JWT_SECRET);
     const workspaceId = payload.workspaceId as string;
 
-    let settings = await prisma.workspaceSettings.findUnique({
+    const settings = await prisma.workspaceSettings.findUnique({
       where: { workspaceId },
     });
 
-    // Auto-create default settings if they don't exist
-    if (!settings) {
-      settings = await prisma.workspaceSettings.create({
-        data: {
-          workspaceId,
-          ollamaBaseUrl: process.env.OLLAMA_BASE_URL ?? "http://localhost:11434",
-          ollamaTextModel: process.env.OLLAMA_TEXT_MODEL ?? "llama3.2:latest",
-          ollamaEmbeddingsModel: process.env.OLLAMA_EMBEDDINGS_MODEL ?? "nomic-embed-text:latest",
-          nanobananaBaseUrl: process.env.NANO_BANANA_BASE_URL ?? "https://api.nanobanana.io/v1",
-        },
-      });
-    }
-
-    return NextResponse.json({ settings: { ...settings, workspaceId } });
+    return NextResponse.json({ settings: settings ? { ...settings, workspaceId } : null });
   } catch (err) {
     console.error("Settings GET error:", err);
     const message = err instanceof Error ? err.message : String(err);

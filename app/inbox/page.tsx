@@ -29,12 +29,31 @@ export default function InboxPage() {
   const router = useRouter();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   const [statusFilter, setStatusFilter] = useState<ConversationStatus | "ALL">("ALL");
   const [channelFilter, setChannelFilter] = useState<ChannelType | "ALL">("ALL");
 
   useEffect(() => {
     fetchConversations();
   }, [statusFilter, channelFilter]);
+
+  async function syncComments() {
+    setSyncing(true);
+    try {
+      const token = localStorage.getItem("syntara_token") ?? "";
+      const res = await fetch("/api/cron/poll-comments", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        await fetchConversations();
+      }
+    } catch (err) {
+      console.error("[InboxPage] sync error:", err);
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   async function fetchConversations() {
     setLoading(true);
@@ -92,6 +111,14 @@ export default function InboxPage() {
             <p className="text-sm text-gray-500">{conversations.filter(c => c.unread_count > 0).length} unread</p>
           </div>
         </div>
+        <button
+          onClick={syncComments}
+          disabled={syncing}
+          className="flex items-center gap-2 px-4 py-2 bg-violet-600 text-white text-sm font-medium rounded-lg hover:bg-violet-700 transition disabled:opacity-50"
+        >
+          <Instagram className="w-4 h-4" />
+          {syncing ? "Syncing..." : "Sync from Instagram"}
+        </button>
       </div>
 
       {/* Filters */}

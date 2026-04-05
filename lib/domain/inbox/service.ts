@@ -148,6 +148,30 @@ export async function sendMessage(
   });
 }
 
+export async function getOrCreateContact(
+  workspaceId: string,
+  platformUserId: string,
+  username: string,
+  profileImageUrl: string | null,
+  instagramId?: string,
+  whatsappId?: string
+): Promise<{ id: string; instagramId: string | null; whatsappId: string | null }> {
+  return prisma.contact.upsert({
+    where: {
+      instagramId: instagramId ?? `unknown:${platformUserId}`,
+    },
+    update: { username, profileImageUrl: profileImageUrl ?? undefined },
+    create: {
+      workspaceId,
+      instagramId: instagramId ?? null,
+      whatsappId: whatsappId ?? null,
+      username,
+      displayName: username,
+      profileImageUrl,
+    },
+  });
+}
+
 export async function sendInstagramReply(
   conversationId: string,
   message: Message,

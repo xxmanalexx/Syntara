@@ -12,18 +12,19 @@ export async function POST(req: Request) {
   if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   let userId: string;
+  let workspaceId: string;
   try {
     const { payload } = await jwtVerify(token, JWT_SECRET);
     userId = payload.sub as string;
+    workspaceId = payload.workspaceId as string;
   } catch {
     return NextResponse.json({ error: "Invalid token" }, { status: 401 });
   }
 
-  // Find the user's connected Instagram account — by userId (don't filter by workspaceId
-  // because the JWT workspace may not match where the IG account was saved)
+  // Find the workspace's connected Instagram account — workspace-scoped
   const account = await prisma.socialAccount.findFirst({
     where: {
-      userId,
+      workspaceId,
       platform: "INSTAGRAM",
       instagramId: { not: null },
     },
