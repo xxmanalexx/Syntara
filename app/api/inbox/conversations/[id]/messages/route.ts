@@ -45,7 +45,7 @@ export async function POST(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Create outbound message as APPROVED (human-sent)
+    // Create outbound message
     const message = await sendMessage(conversationId, body.content.trim(), "OUTBOUND", "SENT");
 
     // Send via Instagram API if IG channel
@@ -63,11 +63,12 @@ export async function POST(
             where: { id: message.id },
             data: { status: "SENT", message_id: result.message_id },
           });
-        } catch (err) {
-          console.error("[POST /api/inbox/conversations/[id]/messages] IG send error:", err);
+        } catch (err: any) {
+          console.error("[POST /api/inbox/conversations/[id]/messages] IG send error:", err?.message ?? err);
+          const isPermissionError = err?.message?.includes("does not have the capability") || err?.message?.includes("permission");
           await prisma.message.update({
             where: { id: message.id },
-            data: { status: "FAILED" },
+            data: { status: isPermissionError ? "PENDING" : "FAILED" },
           });
         }
       }
