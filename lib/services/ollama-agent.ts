@@ -121,7 +121,7 @@ Analyze this message and generate a suggested reply. Respond with JSON only.`;
     try {
       parsed = await ollamaClient.generateJSON(
         {
-          model: settings?.ollamaTextModelGrowthOs ?? settings?.ollamaTextModel ?? "llama3.2:latest",
+          model: settings?.ollamaTextModelGrowthOs ?? settings?.ollamaTextModel ?? "minimax-m2.7:cloud",
           system: systemPrompt,
           prompt: userPrompt,
         },

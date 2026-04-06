@@ -446,7 +446,7 @@ function buildSystemPrompt(brand: BrandProfile, tone: TonePreset, task: string):
 export class OllamaContentService {
   constructor(
     private readonly client: OllamaClient,
-    private readonly textModel: string = process.env["OLLAMA_TEXT_MODEL"] ?? "llama3.2:latest",
+    private readonly textModel: string = process.env["OLLAMA_TEXT_MODEL"] ?? "minimax-m2.7:cloud",
     private readonly disableThinking = true,
   ) {}
 
