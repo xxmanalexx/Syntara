@@ -60,6 +60,11 @@ export class CommentPollingService {
         });
         if (alreadyHandled) continue;
 
+        // Idempotency — skip if already handled by webhook (check message_id match)
+        if (await prisma.message.findUnique({ where: { message_id: comment.id } })) {
+          continue;
+        }
+
         // Create or get contact
         const contact = await getOrCreateContact(
           this.workspaceId,
