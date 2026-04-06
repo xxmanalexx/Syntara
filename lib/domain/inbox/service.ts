@@ -84,6 +84,7 @@ export async function upsertConversationFromWebhook(
     displayName?: string;
     profileImageUrl?: string;
   },
+  ig_media_id?: string,
 ): Promise<Conversation> {
   // Upsert contact
   const contact = await prisma.contact.upsert({
@@ -111,6 +112,7 @@ export async function upsertConversationFromWebhook(
     update: {
       contactId: contact.id,
       last_message_at: new Date(),
+      ...(ig_media_id && { ig_media_id }),
     },
     create: {
       workspaceId,
@@ -118,6 +120,7 @@ export async function upsertConversationFromWebhook(
       channel,
       platform_conversation_id: platformConversationId,
       last_message_at: new Date(),
+      ig_media_id: ig_media_id ?? null,
     },
   });
 

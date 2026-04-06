@@ -115,6 +115,7 @@ export class CommentPollingService {
             content: comment.text,
             message_id: comment.id,
             instagram_media_id: post.id,
+            status: "DELIVERED",
             raw_payload: { postCaption: post.caption ?? "", likeCount: comment.like_count, commenterUsername: comment.from.username },
           },
         });

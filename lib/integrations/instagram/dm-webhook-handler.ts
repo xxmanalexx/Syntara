@@ -130,6 +130,7 @@ export async function handleInstagramWebhook(
           displayName: change.value.from?.name ?? undefined,
           profileImageUrl: change.value.from?.profile_picture_url ?? undefined,
         },
+        change.value.media?.id,
       );
 
       const message = await prisma.message.create({
