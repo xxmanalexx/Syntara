@@ -1,181 +1,64 @@
-# Syntara — AI Instagram Content OS
+# Syntara — AI Instagram Growth OS
 
-> Generate, schedule, and publish Instagram posts with AI — all from one workspace.
+> AI-powered Instagram content creation, scheduling, inbox management, and lead tracking — all from one workspace.
 
 ---
 
-## What it does
+## Features
 
-1. **Connect** your Instagram Professional account (Meta OAuth)
-2. **Define your brand** — voice, tone, audience, style, banned phrases
-3. **Create** — describe your post in plain language, get AI-generated captions, hashtags, visual prompts, and scored drafts
-4. **Attach media** — paste an image URL or upload from your device
-5. **Publish** — one click posts to Instagram directly
+- **AI Content Generation** — describe a post in plain language, get captions, hashtags, visual prompts, and scored drafts
+- **Brand Setup** — define voice, tone, audience, style, and banned phrases
+- **Schedule & Publish** — visual calendar, one-click publishing to Instagram
+- **AI Inbox** —Conversations, auto-replies, and DM management
+- **Lead Tracking** — pipeline view with stage management and activity logs
+- **Analytics** — performance metrics for posts and leads
+- **Growth OS** — task management, message templates, and Instagram webhooks
 
 ---
 
 ## Tech Stack
 
 | Layer | Technology |
-|---|---|---|
+|---|---|
 | Framework | Next.js 14 (App Router) |
 | Language | TypeScript 5 strict |
 | Styling | Tailwind CSS v3 |
 | Database | PostgreSQL (Neon) via Prisma 5 |
-| Auth | JWT (jose) + bcrypt |
+| Auth | JWT via `jose` + `bcrypt` |
 | AI Text | Ollama (local LLM) |
 | AI Images | Nano Banana API |
 | Social | Instagram Graph API (Meta) |
-| CDN | Cloudinary (image uploads for publishing) |
+| CDN | Cloudinary (image proxy for IG publishing) |
 | Icons | Lucide React |
 
 ---
 
-## Getting Started
-
-### Prerequisites
+## Prerequisites
 
 - Node.js 20+
-- PostgreSQL 15+ (Neon recommended for free tier)
+- PostgreSQL 15+ (Neon recommended — free tier)
 - Ollama running locally — [ollama.ai](https://ollama.ai)
 - Meta Developer App — [developers.facebook.com](https://developers.facebook.com)
-- Cloudinary account (free) — [cloudinary.com](https://cloudinary.com) — for image publishing
+- Cloudinary account (free) — [cloudinary.com](https://cloudinary.com)
 
 ---
 
-### 1. Clone & Install
+## Quick Start
 
 ```bash
 git clone https://github.com/xxmanalexx/Syntara.git
 cd Syntara
 npm install
-```
-
-### 2. Configure Environment
-
-```bash
-cp .env.example .env
-```
-
-Edit `.env` with your values. All variables are documented in `.env.example`.
-
-### 3. Database Setup
-
-```bash
+cp .env.example .env   # fill in your values
 npx prisma db push
 npx prisma generate
-```
-
-### 4. Start Ollama
-
-```bash
 ollama serve
 ollama pull llama3.2:latest
 ollama pull nomic-embed-text:latest
-```
-
-### 5. Run
-
-```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000)
-
----
-
-## Docker Setup
-
-### Prerequisites
-
-- [Docker](https://docs.docker.com/get-docker/) 20+
-- [Docker Compose](https://docs.docker.com/compose/install/) v2+
-
-### Quick Start
-
-```bash
-# Start all services (Postgres + App)
-docker compose up --build
-
-# App runs at http://localhost:3000
-# PostgreSQL exposed on port 5432
-```
-
-### Docker Compose Services
-
-| Service | Port | Notes |
-|---|---|---|
-| `app` | 3000 | Next.js dev server |
-| `postgres` | 5432 | PostgreSQL 15, `syntara` database |
-
-### Persisted Volumes
-
-- `postgres_data` — PostgreSQL data directory
-- `./public/media` — locally uploaded images (gitignored)
-
-### Environment Variables
-
-Copy `.env.example` to `.env` and fill in values before running `docker compose up`:
-
-```bash
-cp .env.example .env
-# Edit .env with your secrets
-docker compose up --build
-```
-
-The Docker setup uses your host's CPU for Ollama (run `ollama serve` separately on your host machine).
-
-### Stopping
-
-```bash
-docker compose down        # stop containers
-docker compose down -v      # stop + destroy database volume
-```
-
----
-
-## Meta App Setup
-
-1. Create an app at [developers.facebook.com](https://developers.facebook.com) → **Create App** → choose **Consumer** or **Business** type
-2. Add **Instagram Graph API** product to your app
-3. In **Settings → Basic**, copy **App ID** and **App Secret** to your `.env`
-4. Configure OAuth redirect URI:
-   - Settings → Instagram Basic Display → Valid OAuth Redirect URIs:
-   - `http://localhost:3000/api/instagram/callback`
-5. Required OAuth scopes:
-   - `instagram_basic`
-   - `instagram_content_publish`
-   - `instagram_manage_insights`
-   - `instagram_manage_messages`
-   - `instagram_manage_comments`
-   - `instagram_manage_contents`
-6. Add a test Instagram user: **Roles → Roles** → Add Test Users
-
-### Enabling OAuth Client Flow
-
-If you get implicit flow errors during connect:
-1. In Meta Developer Portal → your app → **Products → Facebook Login** → **Settings**
-2. Enable **OAuth Client Flow**
-3. Set **Valid OAuth Redirect URIs** to `http://localhost:3000/api/instagram/callback`
-
----
-
-## Cloudinary Setup (Required for Publishing)
-
-Instagram needs publicly accessible image URLs. Syntara uses Cloudinary to proxy local uploads.
-
-1. Sign up at [cloudinary.com](https://cloudinary.com) (free tier: 25 credits/month)
-2. Copy your **Cloud Name** from the Dashboard
-3. Create an upload preset:
-   - **Settings** → **Upload** → **Upload presets** → **Add upload preset**
-   - Name: `syntara`
-   - **Signing Mode**: **Unsigned**
-   - Save
-4. Add to `.env`:
-   ```env
-   NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=your_cloud_name
-   NEXT_PUBLIC_CLOUDINARY_PRESET=syntara
-   ```
+Open [http://localhost:3000](http://localhost:3000) — redirects to `/dashboard`.
 
 ---
 
@@ -185,11 +68,11 @@ Instagram needs publicly accessible image URLs. Syntara uses Cloudinary to proxy
 # App
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 
-# Database
-DATABASE_URL=postgresql://postgres:password@localhost:5432/syntara?sslmode=prefer
+# Database (Neon or local)
+DATABASE_URL=postgresql://user:password@host:5432/syntara?sslmode=prefer
 
 # Auth
-NEXTAUTH_SECRET=generate-with-openssl-rand-base64-32
+NEXTAUTH_SECRET=openssl rand -base64 32
 
 # Ollama
 OLLAMA_BASE_URL=http://localhost:11434
@@ -205,12 +88,58 @@ META_APP_ID=your-meta-app-id
 META_APP_SECRET=your-meta-app-secret
 META_REDIRECT_URI=http://localhost:3000/api/instagram/callback
 
-# Cloudinary (required for publishing)
+# Cloudinary (required for IG publishing)
 NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=your_cloud_name
 NEXT_PUBLIC_CLOUDINARY_PRESET=syntara
 
-# Cron (protect internal webhooks)
+# Cron webhooks (protect internal routes)
 CRON_SECRET=your-random-secret
+```
+
+---
+
+## Meta App Setup
+
+1. Create an app at [developers.facebook.com](https://developers.facebook.com) → **Create App** → Consumer or Business type
+2. Add **Instagram Graph API** product
+3. In **Settings → Basic**, copy **App ID** and **App Secret** to `.env`
+4. Configure OAuth redirect URI:
+   `http://localhost:3000/api/instagram/callback`
+5. Required scopes: `instagram_basic`, `instagram_content_publish`, `instagram_manage_insights`, `instagram_manage_messages`, `instagram_manage_comments`, `instagram_manage_contents`
+6. Add a test Instagram user: **Roles → Roles → Add Test Users**
+
+> **OAuth note:** Meta's implicit flow often fails to exchange tokens. If you get auth errors, use the direct token save endpoint at `/api/settings/accounts/save-token` instead of the standard OAuth flow.
+
+---
+
+## Cloudinary Setup
+
+Instagram requires publicly accessible image URLs. Syntara uses Cloudinary to proxy uploads.
+
+1. Sign up at [cloudinary.com](https://cloudinary.com) (free tier)
+2. Copy your **Cloud Name** from the Dashboard
+3. Create an unsigned upload preset named `syntara`:
+   **Settings → Upload → Upload presets → Add upload preset → Signing Mode: Unsigned**
+4. Add to `.env`:
+   ```
+   NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=your_cloud_name
+   NEXT_PUBLIC_CLOUDINARY_PRESET=syntara
+   ```
+
+---
+
+## Docker
+
+```bash
+cp .env.example .env   # fill in values first
+docker compose up --build
+```
+
+App runs at `http://localhost:3000`. PostgreSQL is exposed on port `5432`. Ollama must be running on your host machine.
+
+```bash
+docker compose down        # stop
+docker compose down -v     # stop + destroy database volume
 ```
 
 ---
@@ -219,37 +148,27 @@ CRON_SECRET=your-random-secret
 
 ```
 Syntara/
-├── app/
-│   ├── page.tsx                    # Landing page
-│   ├── login/page.tsx             # Login
-│   ├── onboarding/page.tsx        # Brand setup wizard
-│   ├── dashboard/page.tsx         # Overview with real data
-│   ├── create/page.tsx            # AI content generation
-│   ├── drafts/
-│   │   ├── page.tsx               # Draft list
-│   │   └── [id]/page.tsx          # Draft editor
-│   ├── calendar/page.tsx          # Schedule calendar
-│   ├── analytics/page.tsx         # Performance metrics
-│   ├── settings/page.tsx          # Account + IG connection
-│   └── api/                       # Route handlers
-│       ├── auth/{login,register,session}/
-│       ├── brands/
-│       ├── drafts/{,generate,[id],[id]/publish,[id]/upload,[id]/media}/
-│       ├── dashboard/
-│       ├── images/generate/
-│       ├── instagram/{connect,callback}/
-│       ├── ollama/health/
-│       └── schedules/
+├── app/                          # Next.js App Router pages
+│   ├── (app)/                    # Authenticated routes (redirects to /dashboard)
+│   ├── api/                      # Route handlers
+│   │   ├── auth/                # login, register, session
+│   │   ├── brands/              # brand setup
+│   │   ├── drafts/              # content drafts + generation
+│   │   ├── images/              # AI image generation
+│   │   ├── instagram/            # OAuth + publishing
+│   │   ├── inbox/                # conversation + DM management
+│   │   ├── leads/                # lead CRUD + pipeline
+│   │   ├── schedules/            # post scheduling
+│   │   ├── settings/             # account + IG token management
+│   │   ├── tasks/                # task management
+│   │   ├── templates/            # message templates
+│   │   └── webhooks/meta/        # IG webhook receiver
+│   └── login/, /onboarding/, /signup/
 ├── lib/
-│   ├── integrations/
-│   │   ├── ollama/                # Content generation
-│   │   ├── instagram/             # OAuth + publishing
-│   │   ├── nanobanana/            # Image generation
-│   │   └── cloudinary-upload.ts   # CDN proxy for IG
-│   └── services/                  # Business logic
-├── prisma/
-│   └── schema.prisma              # 20+ models
-└── public/media/                  # Local image uploads
+│   ├── integrations/             # Ollama, Instagram, Nano Banana, Cloudinary
+│   └── services/                 # Business logic
+├── prisma/schema.prisma          # 30 models
+└── public/media/                 # Local image uploads
 ```
 
 ---
@@ -257,7 +176,7 @@ Syntara/
 ## Available Scripts
 
 ```bash
-npm run dev          # Dev server (localhost:3000)
+npm run dev          # Dev server → localhost:3000
 npm run build        # Production build
 npm run start        # Production server
 npm run lint         # ESLint
