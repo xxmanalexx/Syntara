@@ -205,13 +205,18 @@ Analyze this message and generate a suggested reply. Respond with valid JSON onl
       if (isGreenZone && shouldAutoReply) {
         const socialAccount = await prisma.socialAccount.findFirst({
           where: { workspaceId, channel: conversation.channel as ChannelType },
-          select: { accessToken: true },
+          select: { accessToken: true, instagramId: true },
         });
 
         if (socialAccount?.accessToken) {
           try {
             const decryptedToken = decryptToken(socialAccount.accessToken);
-            const result = await sendInstagramReply(conversationId, outboundMessage, decryptedToken);
+            const result = await sendInstagramReply(
+              conversationId,
+              outboundMessage,
+              decryptedToken,
+              socialAccount.instagramId ?? undefined,
+            );
             await prisma.message.update({
               where: { id: outboundMessage.id },
               data: { status: "SENT", message_id: result.message_id },
