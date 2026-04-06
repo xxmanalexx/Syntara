@@ -141,7 +141,7 @@ export async function handleInstagramWebhook(
           content: text || "(media/link attachment)",
           raw_payload: change as unknown as Prisma.InputJsonValue,
           message_id: eventId,
-          status: "PENDING",
+          status: "DELIVERED",
         },
       });
 
@@ -243,7 +243,7 @@ export async function handleInstagramWebhook(
           raw_payload: event as unknown as Prisma.InputJsonValue,
           message_id: message.mid,
           instagram_media_id: mediaAttachments[0]?.payload?.url ?? undefined,
-          status: "PENDING",
+          status: "DELIVERED",
         },
       });
 
