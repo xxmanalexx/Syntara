@@ -42,21 +42,20 @@ export default function InboxPage() {
 
   async function syncComments() {
     setSyncing(true);
-    const timeout = setTimeout(() => {
-      setSyncing(false);
-      setLoading(false);
-    }, 15000); // fallback safety net
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
     try {
       const token = localStorage.getItem("syntara_token") ?? "";
       const res = await fetch("/api/cron/poll-comments", {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
+        signal: controller.signal,
       });
       clearTimeout(timeout);
+      setSyncing(false);
       if (res.ok) {
         await fetchConversations();
       } else {
-        setSyncing(false);
         await fetchConversations();
       }
     } catch (err) {
