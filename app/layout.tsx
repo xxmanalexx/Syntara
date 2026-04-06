@@ -4,6 +4,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Syntara — AI Instagram Content OS",
   description: "AI-native Instagram content operating system for creators and brands",
+  icons: { icon: "/favicon.svg" },
 };
 
 export default function RootLayout({
