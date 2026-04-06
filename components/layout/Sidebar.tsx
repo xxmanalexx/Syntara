@@ -105,12 +105,11 @@ export function Sidebar({ children, title, subtitle }: { children?: React.ReactN
         {/* Logo */}
         <div className="flex items-center justify-between h-16 px-5 border-b border-gray-100">
           <Link href="/dashboard" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-600 to-fuchsia-600 flex items-center justify-center flex-shrink-0">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 2L4 6v12l8 4 8-4V6L12 2z" fill="white" fillOpacity="0.25"/>
-                <path d="M12 6.5L7 9v6l5 2.5 5-2.5V9l-5-2.5z" fill="white"/>
-              </svg>
-            </div>
+            <img
+              src="https://res.cloudinary.com/dlrvllagg/image/upload/v1775444587/file_ewmdtp.svg"
+              alt="Syntara"
+              className="w-8 h-8 rounded-lg object-contain flex-shrink-0"
+            />
             <span className="font-bold text-lg text-gray-900">Syntara</span>
           </Link>
           <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-gray-400 hover:text-gray-600">
