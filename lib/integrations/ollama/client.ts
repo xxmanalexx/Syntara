@@ -224,64 +224,56 @@ export class OllamaClient {
     schema: T,
     maxRetries = 2,
   ): Promise<z.infer<T>> {
-    let lastError: OllamaParseError;
+    let lastError: OllamaParseError | undefined;
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       const raw = await this.generate({ ...opts, format: "json" });
 
-      try {
-        // Strip markdown code fences robustly (model often wraps JSON in ```json ... ```)
-        let cleaned = raw.response;
+      let cleaned = raw.response;
+      cleaned = cleaned.replace(/^[\s\n]*```json\s*/im, "");
+      cleaned = cleaned.replace(/```[\s\n]*$/im, "");
+      cleaned = cleaned.replace(/`/g, "").trim();
 
-        // Remove any leading whitespace/newlines, then the opening ```json fence
-        cleaned = cleaned.replace(/^[\s\n]*```json\s*/im, "");
-
-        // Remove the closing ``` fence anywhere in the string (including after newlines)
-        cleaned = cleaned.replace(/```[\s\n]*$/im, "");
-
-        // Remove any raw backticks that would break JSON parsing
-        cleaned = cleaned.replace(/`/g, "");
-        cleaned = cleaned.trim();
-
-        // Validate it starts with { or [
-        if (!cleaned.startsWith("{") && !cleaned.startsWith("[")) {
-          throw new OllamaParseError(`Response does not look like JSON after cleaning: ${cleaned.slice(0, 100)}`, cleaned);
-        }
-
-        const parsed = JSON.parse(cleaned);
-        return schema.parse(parsed);
-      } catch (err) {
+      if (!cleaned.startsWith("{") && !cleaned.startsWith("[")) {
         lastError = new OllamaParseError(
-          `Failed to parse JSON (attempt ${attempt + 1}/${maxRetries + 1}): ${err instanceof Error ? err.message : String(err)}`,
+          `Response does not look like JSON after cleaning: ${cleaned.slice(0, 100)}`,
           raw.response,
-          err,
         );
+      } else {
+        const parsed = JSON.parse(cleaned);
+        const safe = schema.safeParse(parsed);
+        if (safe.success) {
+          return safe.data;
+        }
+        lastError = new OllamaParseError(
+          `Schema validation failed (attempt ${attempt + 1}/${maxRetries + 1})`,
+          raw.response,
+        );
+      }
 
-        if (attempt < maxRetries) {
-          // Add a修复 hint to the prompt for the next attempt
-          const hint = `\n\nIMPORTANT: Your previous response was not valid JSON. Please respond with ONLY valid JSON, no additional text or markdown fences.`;
-          const patched = {
-            ...opts,
-            prompt: opts.prompt + hint,
-            format: "json" as const,
-          };
-          const retryRaw = await this.generate(patched);
-          try {
-            let cleanedRetry = retryRaw.response;
-            cleanedRetry = cleanedRetry.replace(/^[\s\n]*```json\s*/im, "").replace(/```[\s\n]*$/im, "").replace(/`/g, "").trim();
-            if (!cleanedRetry.startsWith("{") && !cleanedRetry.startsWith("[")) {
-              throw new OllamaParseError(`Retry response does not look like JSON: ${cleanedRetry.slice(0, 100)}`, cleanedRetry);
-            }
-            const parsed = JSON.parse(cleanedRetry);
-            return schema.parse(parsed);
-          } catch {
-            // fall through to retry
+      if (attempt < maxRetries) {
+        const hint = `\n\nIMPORTANT: Respond with ONLY valid JSON matching this format, no markdown fences or extra text.`;
+        const retryRaw = await this.generate({
+          ...opts,
+          prompt: opts.prompt + hint,
+          format: "json",
+        });
+        let cleanedRetry = retryRaw.response;
+        cleanedRetry = cleanedRetry.replace(/^[\s\n]*```json\s*/im, "").replace(/```[\s\n]*$/im, "").replace(/`/g, "").trim();
+        if (!cleanedRetry.startsWith("{") && !cleanedRetry.startsWith("[")) {
+          lastError = new OllamaParseError(`Retry response not JSON: ${cleanedRetry.slice(0, 100)}`, cleanedRetry);
+        } else {
+          const parsed = JSON.parse(cleanedRetry);
+          const safe = schema.safeParse(parsed);
+          if (safe.success) {
+            return safe.data;
           }
+          lastError = new OllamaParseError(`Retry schema validation failed`, cleanedRetry);
         }
       }
     }
 
-    throw lastError!;
+    throw lastError ?? new OllamaParseError("All retries failed");
   }
 
   /**

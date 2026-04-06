@@ -15,7 +15,7 @@ import { decryptToken } from "@/lib/crypto";
 import type { ChannelType } from "@prisma/client";
 
 const intentSchema = z.object({
-  intent: z.string(),
+  intent: z.string().optional(),
   extracted_fields: z.record(z.unknown()).optional(),
   urgency: z.enum(["low", "medium", "high", "critical"]).optional(),
   suggested_reply: z.string().optional(),
@@ -115,7 +115,8 @@ export class LeadOrchestrator {
 
     const userPrompt = `Incoming message from ${contact.displayName ?? contact.username ?? "unknown"}: "${message.content ?? "(media/attachment)"}"
 
-Analyze this message and generate a suggested reply. Respond with JSON only.`;
+Analyze this message and generate a suggested reply. Respond with valid JSON only, for example:
+{"intent":"pricing_inquiry","reply":"Hi! Thanks for reaching out. Our pricing starts at...","confidence":0.85,"response_zone":"GREEN","next_action":"draft_for_approval"}`;
 
     // 2. Call Ollama
     let parsed: IntentOutput;
