@@ -579,6 +579,9 @@ model Conversation {
   last_message_at DateTime?
   last_message_preview String?
   unread_count    Int                @default(0)
+  ig_post_caption String?
+  ig_post_permalink String?
+  ig_media_id     String?
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
 

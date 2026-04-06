@@ -20,6 +20,9 @@ interface Conversation {
   last_message_at: string | null;
   last_message_preview: string | null;
   unread_count: number;
+  ig_post_caption: string | null;
+  ig_post_permalink: string | null;
+  ig_media_id: string | null;
   contact: ConversationContact;
   lead?: { id: string; status: string; first_name?: string | null; last_name?: string | null } | null;
   assignedTo?: { id: string; user: { name?: string | null; email: string } } | null;
@@ -205,6 +208,25 @@ export default function InboxPage() {
                       {conv.last_message_preview || "(no messages)"}
                     </span>
                   </div>
+                  {conv.ig_post_caption && (
+                    <div className="flex items-start gap-1.5 mt-1.5">
+                      <Instagram className="w-3 h-3 text-pink-400 mt-0.5 flex-shrink-0" />
+                      <p className="text-xs text-gray-400 truncate italic flex-1">
+                        "{conv.ig_post_caption.slice(0, 80)}{conv.ig_post_caption.length > 80 ? "…" : ""}"
+                      </p>
+                      {conv.ig_post_permalink && (
+                        <a
+                          href={conv.ig_post_permalink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-xs text-pink-500 hover:text-pink-700 flex-shrink-0 ml-1"
+                        >
+                          View post →
+                        </a>
+                      )}
+                    </div>
+                  )}
                   <div className="flex items-center gap-2 mt-2">
                     {conv.channel === "INSTAGRAM" && (
                       <span className="inline-flex items-center gap-1 text-xs text-pink-600 bg-pink-50 px-2 py-0.5 rounded-full">

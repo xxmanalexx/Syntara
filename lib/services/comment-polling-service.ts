@@ -32,7 +32,7 @@ export class CommentPollingService {
   ) {}
 
   private async fetchMedia(limit = 25): Promise<IgMediaItem[]> {
-    const url = `${INSTAGRAM_API}/${this.igAccountId}/media?fields=id,caption,comments_count,timestamp&access_token=${this.accessToken}&limit=${limit}`;
+    const url = `${INSTAGRAM_API}/${this.igAccountId}/media?fields=id,caption,comments_count,timestamp,permalink&access_token=${this.accessToken}&limit=${limit}`;
     const res = await fetch(url);
     if (!res.ok) throw new Error(`Failed to fetch media: ${res.status}`);
     const data = await res.json();
@@ -71,6 +71,14 @@ export class CommentPollingService {
 
         // Create or get conversation (one per post per contact)
         const convId = `${this.workspaceId}_${post.id}_${comment.from.id}`;
+        const postPermalink = (post as IgMediaItem & { permalink?: string }).permalink ?? null;
+
+        // Check if conversation already has IG post info
+        const existingConv = await prisma.conversation.findUnique({
+          where: { platform_conversation_id: convId },
+          select: { ig_media_id: true },
+        });
+
         const conversation = await prisma.conversation.upsert({
           where: { platform_conversation_id: convId },
           create: {
@@ -78,8 +86,17 @@ export class CommentPollingService {
             contactId: contact.id,
             channel: "INSTAGRAM",
             platform_conversation_id: convId,
+            ig_media_id: post.id,
+            ig_post_caption: post.caption ?? null,
+            ig_post_permalink: postPermalink,
           },
-          update: {},
+          update: existingConv?.ig_media_id
+            ? {}
+            : {
+                ig_media_id: post.id,
+                ig_post_caption: post.caption ?? null,
+                ig_post_permalink: postPermalink,
+              },
         });
 
         // Store the message
