@@ -71,7 +71,7 @@ export class AnalyticsSyncService {
       // Try to fetch reach from insights (available for ~14 days post-publish)
       try {
         const insightsRes = await fetch(
-          `${IG_GRAPH_BASE}/${item.id}/insights?metric=reach,impressions,plays&access_token=${encodeURIComponent(this.accessToken)}`
+          `${IG_GRAPH_BASE}/${item.id}/insights?metric=reach&access_token=${encodeURIComponent(this.accessToken)}`
         );
         if (insightsRes.ok) {
           const insightsData =
