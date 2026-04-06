@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { formatDistanceToNow, format } from "date-fns";
-import { ArrowLeft, Send, CheckCircle, AlertCircle, Bot, User } from "lucide-react";
+import { ArrowLeft, Send, CheckCircle, AlertCircle, Bot, User, Instagram } from "lucide-react";
 
 interface Message {
   id: string;
@@ -28,6 +28,9 @@ interface Conversation {
   id: string;
   channel: string;
   status: string;
+  ig_post_caption: string | null;
+  ig_post_permalink: string | null;
+  ig_media_id: string | null;
   lead?: { id: string; status: string; first_name?: string | null } | null;
   assignedTo?: { id: string; user: { name?: string | null; email: string } } | null;
   contact: Contact;
@@ -150,35 +153,50 @@ export default function ConversationPage() {
   return (
     <div className="flex flex-col h-[calc(100vh-8rem)]">
       {/* Header */}
-      <div className="flex items-center gap-4 mb-4 pb-4 border-b border-gray-100">
-        <button onClick={() => router.push("/inbox")} className="text-gray-400 hover:text-gray-600">
+      <div className="flex items-center gap-3 mb-3 pb-3 border-b border-gray-100">
+        <button onClick={() => router.push("/inbox")} className="text-gray-400 hover:text-gray-600 flex-shrink-0">
           <ArrowLeft className="w-5 h-5" />
         </button>
         {conversation.contact.profileImageUrl ? (
           <img
             src={conversation.contact.profileImageUrl}
             alt={getContactName()}
-            className="w-10 h-10 rounded-full object-cover"
+            className="w-10 h-10 rounded-full object-cover flex-shrink-0"
           />
         ) : (
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-400 to-fuchsia-400 flex items-center justify-center text-white text-sm font-bold">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-400 to-fuchsia-400 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
             {getInitials()}
           </div>
         )}
-        <div className="flex-1">
-          <h2 className="font-semibold text-gray-900">{getContactName()}</h2>
-          <div className="flex items-center gap-2 mt-0.5">
-            {conversation.lead && (
-              <span className="text-xs text-violet-600 bg-violet-50 px-2 py-0.5 rounded-full">
-                {conversation.lead.status}
-              </span>
-            )}
-            {conversation.assignedTo && (
-              <span className="text-xs text-gray-500">
-                Assigned to {conversation.assignedTo.user.name ?? conversation.assignedTo.user.email}
-              </span>
-            )}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold text-gray-900">{getContactName()}</h2>
+            <button
+              onClick={fetchConversation}
+              className="text-xs text-gray-400 hover:text-violet-600 transition"
+              title="Reload messages"
+            >
+              ↻
+            </button>
           </div>
+          {conversation.ig_post_caption && (
+            <div className="flex items-start gap-1.5 mt-1">
+              <Instagram className="w-3 h-3 text-pink-400 mt-0.5 flex-shrink-0" />
+              <p className="text-xs text-gray-400 truncate italic flex-1">
+                "{conversation.ig_post_caption.slice(0, 60)}{conversation.ig_post_caption.length > 60 ? "…" : ""}"
+              </p>
+              {conversation.ig_post_permalink && (
+                <a
+                  href={conversation.ig_post_permalink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-pink-500 hover:text-pink-700 flex-shrink-0"
+                >
+                  View post →
+                </a>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
