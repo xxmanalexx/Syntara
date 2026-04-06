@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 import { prisma } from "@/lib/db";
+import { decryptToken } from "@/lib/crypto";
 import { AnalyticsSyncService } from "@/lib/services/analytics-service";
 
 const JWT_SECRET = new TextEncoder().encode(
@@ -38,8 +39,18 @@ export async function POST(req: Request) {
     );
   }
 
+  let accessToken: string;
+  try {
+    accessToken = decryptToken(account.accessToken);
+  } catch {
+    return NextResponse.json(
+      { error: "Instagram token is invalid. Please reconnect your account." },
+      { status: 400 }
+    );
+  }
+
   const syncService = new AnalyticsSyncService(
-    account.accessToken,
+    accessToken,
     account.instagramId!
   );
 

@@ -7,34 +7,28 @@ const JWT_SECRET = new TextEncoder().encode(
 );
 
 export async function GET(req: Request) {
-  let userId: string;
-  let workspaceId: string | undefined;
+  let workspaceId: string;
 
   try {
     const token = req.headers.get("authorization")?.replace("Bearer ", "");
     if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const { payload } = await jwtVerify(token, JWT_SECRET);
-    userId = payload.sub as string;
-    workspaceId = payload.workspaceId as string | undefined;
+    workspaceId = payload.workspaceId as string;
   } catch {
     return NextResponse.json({ error: "Invalid token" }, { status: 401 });
   }
 
-  // Find the user's IG account — just match by userId + platform, don't filter by workspaceId
-  // because JWT workspace may not match where the IG account was saved
+  // Find the workspace's connected Instagram account — workspace-scoped (userId is null)
   const igAccount = await prisma.socialAccount.findFirst({
     where: {
-      userId,
+      workspaceId,
       platform: "INSTAGRAM",
       instagramId: { not: null },
     },
-    orderBy: { createdAt: "desc" }, // newest = siliconvalleyhub
+    orderBy: { createdAt: "desc" },
   });
 
-  // Use the found account's workspaceId as authoritative for all data queries
-  const primaryWsId = igAccount?.workspaceId ?? workspaceId;
-
-  if (!primaryWsId) {
+  if (!workspaceId) {
     return NextResponse.json({
       summary: null,
       posts: [],
@@ -45,7 +39,7 @@ export async function GET(req: Request) {
   // Fetch snapshots + social account info in parallel
   const [snapshots, igAccountData] = await Promise.all([
     prisma.analyticsSnapshot.findMany({
-      where: { socialAccount: { workspaceId: primaryWsId }, isDeleted: false },
+      where: { socialAccount: { workspaceId }, isDeleted: false },
       orderBy: { publishedAt: "desc" },
       take: 20,
     }),
@@ -64,6 +58,7 @@ export async function GET(req: Request) {
   const totalSaves = snapshots.reduce((s, r) => s + (r.savesCount ?? 0), 0);
   const totalReach = snapshots.reduce((s, r) => s + (r.reach ?? 0), 0);
   const totalImpressions = snapshots.reduce((s, r) => s + (r.impressions ?? 0), 0);
+  const totalPlays = snapshots.reduce((s, r) => s + (r.plays ?? 0), 0);
 
   const totalInteractions = totalLikes + totalComments + totalSaves;
   const avgEngagement =
@@ -82,6 +77,7 @@ export async function GET(req: Request) {
     savesCount: s.savesCount ?? 0,
     reach: s.reach ?? 0,
     impressions: s.impressions ?? 0,
+    plays: s.plays ?? 0,
     publishedAt: s.publishedAt?.toISOString() ?? null,
     postType: s.postType ?? "FEED_POST",
     score:
@@ -100,6 +96,7 @@ export async function GET(req: Request) {
       totalSaves,
       totalReach,
       totalImpressions,
+      totalPlays,
       avgEngagement,
       followerCount: 0,
       igUsername: igAccountData?.username ?? null,

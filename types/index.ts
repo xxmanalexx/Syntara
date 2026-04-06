@@ -244,7 +244,11 @@ export interface AnalyticsSummary {
   totalLikes: number;
   totalComments: number;
   totalSaves: number;
+  totalReach: number;
+  totalImpressions: number;
+  totalPlays: number;
   avgEngagement: number;
+  followerCount: number;
   topPosts: AnalyticsSnapshot[];
   topFormat: ContentType | null;
   topHookPattern: string | null;

@@ -22,11 +22,11 @@ export class AnalyticsSyncService {
     socialAccountId: string,
     limit = 25
   ): Promise<AnalyticsSnapshot[]> {
-    // Fetch basic media data (likes + comments are on this endpoint)
+    // Fetch basic media data (likes + comments + saves are on this endpoint)
     const baseUrl = `${IG_GRAPH_BASE}/${this.igUserId}/media`;
     const params = new URLSearchParams({
       fields:
-        "id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count",
+        "id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count,saved_count",
       limit: String(limit),
     });
 
@@ -50,6 +50,7 @@ export class AnalyticsSyncService {
 
       const likesCount = item.like_count ?? 0;
       const commentsCount = item.comments_count ?? 0;
+      const savesCount = item.saved_count ?? 0;
 
       // Build base snapshot data
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -64,21 +65,25 @@ export class AnalyticsSyncService {
         publishedAt: new Date(item.timestamp),
         likesCount,
         commentsCount,
+        savesCount,
       };
 
       // Try to fetch reach from insights (available for ~14 days post-publish)
       try {
         const insightsRes = await fetch(
-          `${IG_GRAPH_BASE}/${item.id}/insights?metric=reach&access_token=${encodeURIComponent(this.accessToken)}`
+          `${IG_GRAPH_BASE}/${item.id}/insights?metric=reach,impressions,plays&access_token=${encodeURIComponent(this.accessToken)}`
         );
         if (insightsRes.ok) {
           const insightsData =
             (await insightsRes.json()) as InsightsResponse;
-          const reachMetric = insightsData.data?.find(
-            (m) => m.name === "reach"
-          );
-          if (reachMetric && reachMetric.values[0]?.value > 0) {
-            snapshotData.reach = reachMetric.values[0].value;
+          for (const metric of insightsData.data ?? []) {
+            if (metric.name === "reach" && metric.values[0]?.value > 0) {
+              snapshotData.reach = metric.values[0].value;
+            } else if (metric.name === "impressions" && metric.values[0]?.value > 0) {
+              snapshotData.impressions = metric.values[0].value;
+            } else if (metric.name === "plays" && metric.values[0]?.value > 0) {
+              snapshotData.plays = metric.values[0].value;
+            }
           }
         }
       } catch {
@@ -89,7 +94,7 @@ export class AnalyticsSyncService {
       const snapshot = await prisma.analyticsSnapshot.upsert({
         where: { instagramMediaId: item.id },
         create: snapshotData,
-        update: { likesCount, commentsCount },
+        update: { likesCount, commentsCount, savesCount },
       });
 
       // If we got a reach value from insights, update the record
@@ -152,7 +157,11 @@ export class AnalyticsSyncService {
         totalLikes: 0,
         totalComments: 0,
         totalSaves: 0,
+        totalReach: 0,
+        totalImpressions: 0,
+        totalPlays: 0,
         avgEngagement: 0,
+        followerCount: 0,
         topPosts: [],
         topFormat: null,
         topHookPattern: null,
@@ -168,6 +177,18 @@ export class AnalyticsSyncService {
     );
     const totalSaves = dbSnapshots.reduce(
       (sum, s) => sum + s.savesCount,
+      0
+    );
+    const totalReach = dbSnapshots.reduce(
+      (sum, s) => sum + (s.reach ?? 0),
+      0
+    );
+    const totalImpressions = dbSnapshots.reduce(
+      (sum, s) => sum + (s.impressions ?? 0),
+      0
+    );
+    const totalPlays = dbSnapshots.reduce(
+      (sum, s) => sum + (s.plays ?? 0),
       0
     );
     const totalInteractions =
@@ -221,7 +242,11 @@ export class AnalyticsSyncService {
       totalLikes,
       totalComments,
       totalSaves,
+      totalReach,
+      totalImpressions,
+      totalPlays,
       avgEngagement,
+      followerCount: 0,
       topPosts,
       topFormat,
       topHookPattern: null,
@@ -241,6 +266,7 @@ interface IGMediaItem {
   timestamp: string;
   like_count?: number;
   comments_count?: number;
+  saved_count?: number;
 }
 
 interface InsightsResponse {

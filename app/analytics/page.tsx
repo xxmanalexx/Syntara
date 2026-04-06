@@ -39,6 +39,7 @@ interface Post {
   savesCount: number;
   reach: number;
   impressions: number;
+  plays: number;
   publishedAt: string | null;
   postType: string;
   score: number;
@@ -271,6 +272,8 @@ function AnalyticsContent({ summary, posts, syncing, syncNow }: {
                 <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">💬</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">🔖</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">👁️</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">📄</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">▶️</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Date</th>
                 <th className="px-4 py-3"></th>
               </tr>
@@ -288,6 +291,8 @@ function AnalyticsContent({ summary, posts, syncing, syncNow }: {
                   <td className="px-4 py-3 text-right text-gray-700">{post.commentsCount}</td>
                   <td className="px-4 py-3 text-right text-gray-700">{post.savesCount}</td>
                   <td className="px-4 py-3 text-right text-gray-700">{post.reach > 0 ? formatCount(post.reach) : "—"}</td>
+                  <td className="px-4 py-3 text-right text-gray-700">{post.impressions > 0 ? formatCount(post.impressions) : "—"}</td>
+                  <td className="px-4 py-3 text-right text-gray-700">{post.plays > 0 ? formatCount(post.plays) : "—"}</td>
                   <td className="px-4 py-3 text-right text-gray-400 text-xs whitespace-nowrap">
                     {post.publishedAt ? formatDate(post.publishedAt) : "—"}
                   </td>
@@ -408,7 +413,7 @@ function ResearchTab({ searchQuery, setSearchQuery, handleResearch, searching, h
                       : <p className="text-sm text-gray-400 italic mb-2">No caption</p>
                     }
                     <div className="flex items-center gap-3 text-xs text-gray-500">
-                      <span>❤️ {fmtCount(post.likeCount)}</span>
+                      <span>❤️ {fmtCount(post.likesCount)}</span>
                       <span>💬 {fmtCount(post.commentsCount)}</span>
                       {post.hashtags?.length > 0 && (
                         <span className="text-violet-500 truncate">{post.hashtags.slice(0, 3).join(' ')}</span>
