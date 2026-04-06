@@ -22,11 +22,11 @@ export class AnalyticsSyncService {
     socialAccountId: string,
     limit = 25
   ): Promise<AnalyticsSnapshot[]> {
-    // Fetch basic media data (likes + comments + saves are on this endpoint)
+    // Fetch basic media data (likes + comments on this endpoint)
     const baseUrl = `${IG_GRAPH_BASE}/${this.igUserId}/media`;
     const params = new URLSearchParams({
       fields:
-        "id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count,saved_count",
+        "id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count",
       limit: String(limit),
     });
 
@@ -50,7 +50,7 @@ export class AnalyticsSyncService {
 
       const likesCount = item.like_count ?? 0;
       const commentsCount = item.comments_count ?? 0;
-      const savesCount = item.saved_count ?? 0;
+      const savesCount = 0;
 
       // Build base snapshot data
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
