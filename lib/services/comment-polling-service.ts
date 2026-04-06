@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { decryptToken } from "@/lib/crypto";
 import { getOrCreateContact } from "@/lib/domain/inbox/service";
+import { leadOrchestrator } from "@/lib/services/ollama-agent";
 
 const INSTAGRAM_API = "https://graph.facebook.com/v19.0";
 
@@ -105,7 +106,7 @@ export class CommentPollingService {
         });
 
         // Store the message
-        await prisma.message.create({
+        const savedMessage = await prisma.message.create({
           data: {
             workspaceId: this.workspaceId,
             conversationId: conversation.id,
@@ -146,6 +147,13 @@ export class CommentPollingService {
             raw_payload: { mediaId: post.id, commentText: comment.text, from: comment.from },
           },
         });
+
+        // Run AI orchestrator (generate reply suggestion)
+        try {
+          await leadOrchestrator.processInboundMessage(conversation.id, savedMessage.id);
+        } catch (err) {
+          console.error("[CommentPolling] Orchestrator error:", err);
+        }
 
         newComments++;
       }
