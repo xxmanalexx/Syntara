@@ -106,9 +106,9 @@ export function Sidebar({ children, title, subtitle }: { children?: React.ReactN
         <div className="flex items-center justify-between h-16 px-5 border-b border-gray-100">
           <Link href="/dashboard" className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-600 to-fuchsia-600 flex items-center justify-center flex-shrink-0">
-              <svg viewBox="0 0 32 32" width="20" height="20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect width="32" height="32" rx="7" fill="white" fillOpacity="0.15"/>
-                <text x="16" y="22" fontFamily="system-ui, sans-serif" fontSize="17" fontWeight="700" fill="white" textAnchor="middle">S</text>
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2L4 6v12l8 4 8-4V6L12 2z" fill="white" fillOpacity="0.25"/>
+                <path d="M12 6.5L7 9v6l5 2.5 5-2.5V9l-5-2.5z" fill="white"/>
               </svg>
             </div>
             <span className="font-bold text-lg text-gray-900">Syntara</span>
