@@ -18,6 +18,7 @@ import {
   Users,
   CheckCircle2,
   MessageSquare,
+  TrendingUp,
 } from "lucide-react";
 
 const NAV = [
@@ -33,6 +34,7 @@ const NAV = [
 const CRM_NAV = [
   { href: "/inbox", icon: Inbox, label: "Inbox" },
   { href: "/leads", icon: Users, label: "Leads" },
+  { href: "/leads/analytics", icon: TrendingUp, label: "Lead Analytics" },
   { href: "/replies", icon: MessageSquare, label: "Saved Replies" },
   { href: "/tasks", icon: CheckCircle2, label: "Tasks" },
 ];
