@@ -16,6 +16,8 @@ import {
   Activity,
   Inbox,
   Users,
+  CheckCircle2,
+  MessageSquare,
 } from "lucide-react";
 
 const NAV = [
@@ -31,6 +33,8 @@ const NAV = [
 const CRM_NAV = [
   { href: "/inbox", icon: Inbox, label: "Inbox" },
   { href: "/leads", icon: Users, label: "Leads" },
+  { href: "/replies", icon: MessageSquare, label: "Saved Replies" },
+  { href: "/tasks", icon: CheckCircle2, label: "Tasks" },
 ];
 
 function CrontStatusDot({ running }: { running: boolean }) {
