@@ -38,7 +38,6 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const workspaceId = payload.workspaceId as string;
   const draftId = params.id;
 
   // Load the draft with its media assets
