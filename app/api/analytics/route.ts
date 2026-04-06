@@ -18,7 +18,6 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Invalid token" }, { status: 401 });
   }
 
-  // Find the workspace's connected Instagram account — workspace-scoped (userId is null)
   const igAccount = await prisma.socialAccount.findFirst({
     where: {
       workspaceId,
@@ -27,6 +26,8 @@ export async function GET(req: Request) {
     },
     orderBy: { createdAt: "desc" },
   });
+
+  console.log("[Analytics GET] workspaceId:", workspaceId, "igAccount:", igAccount?.username);
 
   if (!workspaceId) {
     return NextResponse.json({
