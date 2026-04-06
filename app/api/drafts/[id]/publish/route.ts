@@ -37,7 +37,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const userId = payload.sub as string;
+  const workspaceId = payload.workspaceId as string;
   const draftId = params.id;
 
   // Load the draft with its media assets
@@ -53,10 +53,12 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     return NextResponse.json({ error: "Draft not found" }, { status: 404 });
   }
 
-  // Get the user's connected Instagram account — find by userId directly
+  // Get the Instagram account connected to this workspace.
+  // Note: social accounts are saved with workspaceId (not userId) since they
+  // are workspace-scoped, not user-scoped.
   const account = await prisma.socialAccount.findFirst({
     where: {
-      userId,
+      workspaceId,
       platform: "INSTAGRAM",
       instagramId: { not: null },
     },
