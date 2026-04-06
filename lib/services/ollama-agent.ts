@@ -17,12 +17,13 @@ import type { ChannelType } from "@prisma/client";
 const intentSchema = z.object({
   intent: z.string(),
   extracted_fields: z.record(z.unknown()).optional(),
-  urgency: z.enum(["low", "medium", "high", "critical"]),
+  urgency: z.enum(["low", "medium", "high", "critical"]).optional(),
   suggested_reply: z.string().optional(),
-  response_zone: z.enum(["GREEN", "YELLOW", "RED"]),
-  next_action: z.enum(["send_reply", "draft_for_approval", "create_task", "move_stage", "skip"]),
+  reply: z.string().optional(), // some models use 'reply' instead
+  response_zone: z.enum(["GREEN", "YELLOW", "RED"]).optional(),
+  next_action: z.enum(["send_reply", "draft_for_approval", "create_task", "move_stage", "skip"]).optional(),
   suggested_stage: z.string().optional(),
-  confidence: z.number().min(0).max(1),
+  confidence: z.number().min(0).max(1).optional(),
   should_create_lead: z.boolean().optional(),
 });
 
@@ -137,23 +138,27 @@ Analyze this message and generate a suggested reply. Respond with JSON only.`;
       return;
     }
 
-    // 3. Update message with AI data
+    // 3. Update message with AI data — use safe fallbacks for optional fields
+    const suggestedReply = parsed.suggested_reply ?? parsed.reply;
     await prisma.message.update({
       where: { id: messageId },
       data: {
-        ai_intent: parsed.intent,
-        ai_confidence: parsed.confidence,
-        ai_suggestion: parsed.suggested_reply,
-        response_zone: parsed.response_zone,
+        ai_intent: parsed.intent ?? "general",
+        ai_confidence: parsed.confidence ?? 0.5,
+        ai_suggestion: suggestedReply,
+        response_zone: parsed.response_zone ?? "YELLOW",
       },
     });
 
     // 4. Determine auto-reply behavior
+    const responseZone = parsed.response_zone ?? "YELLOW";
     const shouldAutoReply = settings?.autoReplyEnabled === true;
-    const isGreenZone = parsed.response_zone === "GREEN";
+    const isGreenZone = responseZone === "GREEN";
     const greenOnlyMode = settings?.autoReplyGreenOnly === true;
 
-    if (parsed.next_action === "skip") {
+    const nextAction = parsed.next_action ?? (suggestedReply ? "draft_for_approval" : "skip");
+
+    if (nextAction === "skip") {
       return;
     }
 
