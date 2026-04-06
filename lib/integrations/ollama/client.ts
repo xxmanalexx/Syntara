@@ -232,21 +232,22 @@ export class OllamaClient {
       try {
         // Strip markdown code fences robustly (model often wraps JSON in ```json ... ```)
         let cleaned = raw.response;
-        // Remove opening fence: ```json\n or ```json\n
-        cleaned = cleaned.replace(/^```json\s*/i, "");
-        // Remove closing fence: \n``` at end
-        cleaned = cleaned.replace(/\s*```$/im, "");
-        // If still starts with backtick, strip any remaining fence-like patterns
-        if (cleaned.startsWith("`")) {
-          cleaned = cleaned.replace(/^`+/, "").replace(/`+$/, "");
-        }
+
+        // Remove any leading whitespace/newlines, then the opening ```json fence
+        cleaned = cleaned.replace(/^[\s\n]*```json\s*/im, "");
+
+        // Remove the closing ``` fence anywhere in the string (including after newlines)
+        cleaned = cleaned.replace(/```[\s\n]*$/im, "");
+
         // Remove any raw backticks that would break JSON parsing
         cleaned = cleaned.replace(/`/g, "");
         cleaned = cleaned.trim();
+
         // Validate it starts with { or [
         if (!cleaned.startsWith("{") && !cleaned.startsWith("[")) {
           throw new OllamaParseError(`Response does not look like JSON after cleaning: ${cleaned.slice(0, 100)}`, cleaned);
         }
+
         const parsed = JSON.parse(cleaned);
         return schema.parse(parsed);
       } catch (err) {
@@ -267,7 +268,7 @@ export class OllamaClient {
           const retryRaw = await this.generate(patched);
           try {
             let cleanedRetry = retryRaw.response;
-            cleanedRetry = cleanedRetry.replace(/^```json\s*/i, "").replace(/\s*```$/im, "").replace(/`/g, "").trim();
+            cleanedRetry = cleanedRetry.replace(/^[\s\n]*```json\s*/im, "").replace(/```[\s\n]*$/im, "").replace(/`/g, "").trim();
             if (!cleanedRetry.startsWith("{") && !cleanedRetry.startsWith("[")) {
               throw new OllamaParseError(`Retry response does not look like JSON: ${cleanedRetry.slice(0, 100)}`, cleanedRetry);
             }
