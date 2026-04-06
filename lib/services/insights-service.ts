@@ -35,7 +35,7 @@ export class InstagramInsightsService {
   private mapPosts(data: any[]): any[] {
     return data.map((p: any) => ({
       id: p.id,
-      likeCount: p.like_count ?? 0,
+      likesCount: p.like_count ?? 0,
       commentsCount: p.comments_count ?? 0,
       engagement: (p.like_count ?? 0) + (p.comments_count ?? 0),
       caption: p.caption ?? "",
