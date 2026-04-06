@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 import { prisma } from "@/lib/db";
+import { decryptToken } from "@/lib/crypto";
 import { InstagramPublishingService } from "@/lib/integrations/instagram/publishing-service";
 import { AnalyticsSyncService } from "@/lib/services/analytics-service";
 import { uploadToCloudinary } from "@/lib/integrations/cloudinary-upload";
@@ -53,9 +54,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     return NextResponse.json({ error: "Draft not found" }, { status: 404 });
   }
 
+  // Use the workspace that owns this draft — not the JWT's workspace.
+  // (Social accounts are workspace-scoped, so we must match the draft's workspace.)
+  const workspaceId = draft.workspaceId;
+
   // Get the Instagram account connected to this workspace.
-  // Note: social accounts are saved with workspaceId (not userId) since they
-  // are workspace-scoped, not user-scoped.
   const account = await prisma.socialAccount.findFirst({
     where: {
       workspaceId,
@@ -70,6 +73,15 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       { error: "No Instagram account connected. Please connect Instagram first." },
       { status: 400 }
     );
+  }
+
+  // Tokens are AES-256-GCM encrypted in the DB — decrypt before use
+  let accessToken: string;
+  try {
+    accessToken = decryptToken(account.accessToken);
+  } catch (err: any) {
+    console.error("[Publish] Token decryption failed:", err?.message);
+    return NextResponse.json({ error: "Instagram token is invalid. Please reconnect your account." }, { status: 400 });
   }
 
   if (!account.isProfessional) {
@@ -124,7 +136,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     }
   }
 
-  const publishService = new InstagramPublishingService(account.accessToken);
+  const publishService = new InstagramPublishingService(accessToken);
 
   try {
 
@@ -155,7 +167,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
     // Sync analytics for this account so dashboard metrics update
     try {
-      const syncService = new AnalyticsSyncService(account.accessToken, igUserId);
+      const syncService = new AnalyticsSyncService(accessToken, igUserId);
       await syncService.syncRecentMedia(account.workspaceId, account.id, 10);
     } catch (syncErr) {
       // Non-fatal: analytics sync should not block publish success
