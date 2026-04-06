@@ -52,20 +52,28 @@ export async function POST(
     if (conversation.channel === "INSTAGRAM") {
       const socialAccount = await prisma.socialAccount.findFirst({
         where: { workspaceId: payload.workspaceId, channel: "INSTAGRAM" },
-        select: { accessToken: true },
+        select: { accessToken: true, instagramId: true },
       });
 
-      if (socialAccount?.accessToken) {
+      if (socialAccount?.accessToken && socialAccount.instagramId) {
         try {
           const decryptedToken = decryptToken(socialAccount.accessToken);
-          const result = await sendInstagramReply(conversationId, message, decryptedToken);
+          const result = await sendInstagramReply(
+            conversationId,
+            message,
+            decryptedToken,
+            socialAccount.instagramId,
+          );
           await prisma.message.update({
             where: { id: message.id },
             data: { status: "SENT", message_id: result.message_id },
           });
         } catch (err: any) {
           console.error("[POST /api/inbox/conversations/[id]/messages] IG send error:", err?.message ?? err);
-          const isPermissionError = err?.message?.includes("does not have the capability") || err?.message?.includes("permission");
+          const isPermissionError =
+            err?.message?.includes("does not have the capability") ||
+            err?.message?.includes("permission") ||
+            err?.message?.includes("required to send DMs");
           await prisma.message.update({
             where: { id: message.id },
             data: { status: isPermissionError ? "PENDING" : "FAILED" },

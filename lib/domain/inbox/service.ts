@@ -176,16 +176,40 @@ export async function sendInstagramReply(
   conversationId: string,
   message: Message,
   accessToken: string,
+  igUserId?: string,
 ): Promise<{ message_id: string }> {
   const conversation = await prisma.conversation.findUnique({
     where: { id: conversationId },
-    select: { contact: { select: { instagramId: true } } },
+    select: {
+      contact: { select: { instagramId: true } },
+      ig_media_id: true,
+    },
   });
   if (!conversation?.contact?.instagramId) {
     throw new Error("Contact has no instagramId for sending DM");
   }
 
-  const url = `https://graph.facebook.com/v18.0/me/messages?access_token=${accessToken}`;
+  // Route: comment reply vs. DM
+  if (conversation.ig_media_id && message.message_id) {
+    // Reply to a comment via the Comment Replies API
+    const url = `https://graph.facebook.com/v18.0/${message.message_id}/replies?access_token=${accessToken}`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: message.content ?? "" }),
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`Instagram Comment API error: ${res.status} ${err}`);
+    }
+    const data = await res.json() as { id?: string; error?: { message: string } };
+    if (data.error) throw new Error(`Instagram Comment API error: ${data.error.message}`);
+    return { message_id: data.id ?? message.message_id };
+  }
+
+  // Send a DM via Instagram Messaging API (requires IG user ID)
+  if (!igUserId) throw new Error("IG user ID required to send DMs");
+  const url = `https://graph.facebook.com/v18.0/${igUserId}/messages?access_token=${accessToken}`;
   const payload = {
     recipient: { id: conversation.contact.instagramId },
     message: { text: message.content ?? "" },
@@ -199,11 +223,11 @@ export async function sendInstagramReply(
 
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`Instagram API error: ${res.status} ${err}`);
+    throw new Error(`Instagram DM API error: ${res.status} ${err}`);
   }
 
   const data = await res.json() as { message_id?: string; error?: { message: string } };
-  if (data.error) throw new Error(`Instagram API error: ${data.error.message}`);
+  if (data.error) throw new Error(`Instagram DM API error: ${data.error.message}`);
   if (!data.message_id) throw new Error("No message_id in Instagram API response");
 
   return { message_id: data.message_id };

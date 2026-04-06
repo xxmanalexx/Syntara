@@ -112,6 +112,15 @@ export async function handleInstagramWebhook(
         },
       });
 
+      // Idempotency — skip if comment already stored
+      if (eventId) {
+        const existing = await prisma.message.findUnique({ where: { message_id: eventId } });
+        if (existing) {
+          console.log(`[Webhook] Skipping duplicate comment event ${eventId}`);
+          continue;
+        }
+      }
+
       const conversation = await upsertConversationFromWebhook(
         workspaceId,
         `ig_comment_${fromId}_${timestamp ?? Date.now()}`,

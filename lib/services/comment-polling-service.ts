@@ -15,7 +15,7 @@ interface IgComment {
   id: string;
   text: string;
   from: { id: string; username: string };
-  created_at: string;
+  created_at: string | number; // Unix timestamp (seconds) or ISO string
   like_count: number;
 }
 
@@ -113,11 +113,19 @@ export class CommentPollingService {
           },
         });
 
-        // Update conversation preview
+        // Update conversation preview — guard against invalid dates
+        const commentDate = (() => {
+          const raw = comment.created_at;
+          if (!raw) return new Date();
+          if (typeof raw === "number") return new Date(raw * 1000);
+          const parsed = new Date(raw);
+          return isNaN(parsed.getTime()) ? new Date() : parsed;
+        })();
+
         await prisma.conversation.update({
           where: { id: conversation.id },
           data: {
-            last_message_at: new Date(comment.created_at),
+            last_message_at: commentDate,
             last_message_preview: comment.text.slice(0, 100),
             unread_count: { increment: 1 },
           },
