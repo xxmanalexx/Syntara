@@ -12,11 +12,9 @@ export async function POST(req: Request) {
   const token = req.headers.get("authorization")?.replace("Bearer ", "");
   if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  let userId: string;
   let workspaceId: string;
   try {
     const { payload } = await jwtVerify(token, JWT_SECRET);
-    userId = payload.sub as string;
     workspaceId = payload.workspaceId as string;
   } catch {
     return NextResponse.json({ error: "Invalid token" }, { status: 401 });
@@ -55,12 +53,13 @@ export async function POST(req: Request) {
   );
 
   try {
-    // Sync recent media (limit 25 — fetches latest posts from IG API)
+    console.log("[AnalyticsSync] Starting - workspace:", workspaceId, "account:", account.instagramId);
     const snapshots = await syncService.syncRecentMedia(
       account.workspaceId,
       account.id,
       25
     );
+    console.log("[AnalyticsSync] Success - synced:", snapshots.length);
 
     return NextResponse.json({
       success: true,
@@ -71,7 +70,7 @@ export async function POST(req: Request) {
           : `Synced ${snapshots.length} new post(s)`,
     });
   } catch (err: any) {
-    console.error("Analytics sync error:", err?.message ?? err);
+    console.error("[AnalyticsSync] Failed:", err?.message ?? err, err?.stack);
     return NextResponse.json(
       { error: `Sync failed: ${err?.message ?? "Unknown error"}` },
       { status: 500 }

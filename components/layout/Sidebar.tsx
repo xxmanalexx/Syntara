@@ -19,6 +19,7 @@ import {
   CheckCircle2,
   MessageSquare,
   TrendingUp,
+  Bot,
 } from "lucide-react";
 
 const NAV = [
@@ -37,6 +38,7 @@ const CRM_NAV = [
   { href: "/leads/analytics", icon: TrendingUp, label: "Lead Analytics" },
   { href: "/replies", icon: MessageSquare, label: "Saved Replies" },
   { href: "/tasks", icon: CheckCircle2, label: "Tasks" },
+  { href: "/approvals", icon: Bot, label: "Approvals" },
 ];
 
 function CrontStatusDot({ running }: { running: boolean }) {

@@ -45,6 +45,8 @@ export default function SettingsPage() {
   const [embeddingsModel, setEmbeddingsModel] = useState("nomic-embed-text:latest");
   const [nanoBananaUrl, setNanoBananaUrl] = useState("https://api.nanobanana.io/v1");
   const [nanoBananaKey, setNanoBananaKey] = useState("");
+  const [autoReplyEnabled, setAutoReplyEnabled] = useState(false);
+  const [autoReplyGreenOnly, setAutoReplyGreenOnly] = useState(true);
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [ollamaOnline, setOllamaOnline] = useState(false);
   const [workspaceId, setWorkspaceId] = useState("");
@@ -90,6 +92,8 @@ export default function SettingsPage() {
           setEmbeddingsModel(s.ollamaEmbeddingsModel);
           setNanoBananaUrl(s.nanobananaBaseUrl);
           setNanoBananaKey(s.nanobananaApiKey ?? "");
+          setAutoReplyEnabled(s.autoReplyEnabled ?? false);
+          setAutoReplyGreenOnly(s.autoReplyGreenOnly ?? true);
         }
       } else {
         const text = await res.text();
@@ -158,6 +162,8 @@ export default function SettingsPage() {
           ollamaEmbeddingsModel: embeddingsModel,
           nanobananaBaseUrl: nanoBananaUrl,
           nanobananaApiKey: nanoBananaKey || null,
+          autoReplyEnabled,
+          autoReplyGreenOnly,
         }),
       });
 
@@ -363,6 +369,42 @@ export default function SettingsPage() {
                         onChange={(e) => setNanoBananaUrl(e.target.value)}
                         className="w-full px-4 py-2.5 rounded-lg border border-gray-200 bg-white focus:ring-2 focus:ring-violet-500 outline-none text-sm"
                       />
+                    </div>
+                  </div>
+
+                  {/* Auto-reply */}
+                  <div className="p-4 rounded-xl border border-gray-100 bg-gray-50 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-semibold text-gray-700">Auto-Reply</h3>
+                      <span className="text-xs bg-violet-100 text-violet-600 px-2 py-0.5 rounded-full">AI-powered</span>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-gray-700">Enable auto-reply</p>
+                          <p className="text-xs text-gray-400">Automatically send AI-generated replies</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setAutoReplyEnabled(!autoReplyEnabled)}
+                          className={`w-11 h-6 rounded-full relative transition ${autoReplyEnabled ? "bg-violet-600" : "bg-gray-200"}`}
+                        >
+                          <div className={`w-5 h-5 rounded-full bg-white shadow absolute top-0.5 transition-all ${autoReplyEnabled ? "right-0.5" : "left-0.5"}`} />
+                        </button>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-gray-700">GREEN zone only</p>
+                          <p className="text-xs text-gray-400">Only auto-reply on high-confidence suggestions</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setAutoReplyGreenOnly(!autoReplyGreenOnly)}
+                          className={`w-11 h-6 rounded-full relative transition ${autoReplyGreenOnly ? "bg-violet-600" : "bg-gray-200"}`}
+                        >
+                          <div className={`w-5 h-5 rounded-full bg-white shadow absolute top-0.5 transition-all ${autoReplyGreenOnly ? "right-0.5" : "left-0.5"}`} />
+                        </button>
+                      </div>
                     </div>
                   </div>
 

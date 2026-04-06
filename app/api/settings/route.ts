@@ -43,6 +43,8 @@ export async function PUT(req: Request) {
       ollamaEmbeddingsModel,
       nanobananaApiKey,
       nanobananaBaseUrl,
+      autoReplyEnabled,
+      autoReplyGreenOnly,
     } = body;
 
     const settings = await prisma.workspaceSettings.upsert({
@@ -50,10 +52,12 @@ export async function PUT(req: Request) {
       create: {
         workspaceId,
         ollamaBaseUrl: ollamaBaseUrl ?? "http://localhost:11434",
-        ollamaTextModel: ollamaTextModel ?? "llama3.2:latest",
+        ollamaTextModel: ollamaTextModel ?? "minimax-m2.7:cloud",
         ollamaEmbeddingsModel: ollamaEmbeddingsModel ?? "nomic-embed-text:latest",
         nanobananaApiKey: nanobananaApiKey ?? null,
         nanobananaBaseUrl: nanobananaBaseUrl ?? "https://api.nanobanana.io/v1",
+        autoReplyEnabled: !!autoReplyEnabled,
+        autoReplyGreenOnly: autoReplyGreenOnly !== false,
       },
       update: {
         ...(ollamaBaseUrl !== undefined && { ollamaBaseUrl }),
@@ -61,6 +65,8 @@ export async function PUT(req: Request) {
         ...(ollamaEmbeddingsModel !== undefined && { ollamaEmbeddingsModel }),
         ...(nanobananaApiKey !== undefined && { nanobananaApiKey }),
         ...(nanobananaBaseUrl !== undefined && { nanobananaBaseUrl }),
+        ...(autoReplyEnabled !== undefined && { autoReplyEnabled: !!autoReplyEnabled }),
+        ...(autoReplyGreenOnly !== undefined && { autoReplyGreenOnly: !!autoReplyGreenOnly }),
       },
     });
 
