@@ -4,7 +4,6 @@ import { runCommentPolling } from "@/lib/services/comment-polling-service";
 const CRON_SECRET = process.env.CRON_SECRET ?? "dev-cron-secret";
 
 export async function POST(req: Request) {
-  // Check x-cron-secret header from the cron scheduler
   const token = req.headers.get("x-cron-secret");
   if (token !== CRON_SECRET) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
