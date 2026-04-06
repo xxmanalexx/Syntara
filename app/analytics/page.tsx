@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { TrendingUp, Heart, MessageCircle, Bookmark, Eye, RefreshCw, ExternalLink, Search, Loader2, Hash } from "lucide-react";
 
-function formatCount(n: number): string {
+function formatCount(n: number | null | undefined): string {
+  if (n == null) return "0";
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
   return n.toString();
@@ -415,8 +416,8 @@ function ResearchTab({ searchQuery, setSearchQuery, handleResearch, searching, h
                     <div className="flex items-center gap-3 text-xs text-gray-500">
                       <span>❤️ {fmtCount(post.likesCount)}</span>
                       <span>💬 {fmtCount(post.commentsCount)}</span>
-                      {post.hashtags?.length > 0 && (
-                        <span className="text-violet-500 truncate">{post.hashtags.slice(0, 3).join(' ')}</span>
+                      {Array.isArray(post.hashtags) && post.hashtags.length > 0 && (
+                        <span className="text-violet-500 truncate">{post.hashtags.slice(0, 3).join(" ")}</span>
                       )}
                     </div>
                   </div>
