@@ -183,6 +183,11 @@ export async function sendInstagramReply(
     select: {
       contact: { select: { instagramId: true } },
       ig_media_id: true,
+      messages: {
+        where: { direction: "INBOUND", message_id: { not: null } },
+        orderBy: { createdAt: "desc" },
+        take: 1,
+      },
     },
   });
   if (!conversation?.contact?.instagramId) {
@@ -190,9 +195,10 @@ export async function sendInstagramReply(
   }
 
   // Route: comment reply vs. DM
-  if (conversation.ig_media_id && message.message_id) {
+  const inboundMessageId = conversation.messages[0]?.message_id;
+  if (conversation.ig_media_id && inboundMessageId) {
     // Reply to a comment via the Comment Replies API
-    const url = `https://graph.facebook.com/v18.0/${message.message_id}/replies?access_token=${accessToken}`;
+    const url = `https://graph.facebook.com/v18.0/${inboundMessageId}/replies?access_token=${accessToken}`;
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -204,7 +210,7 @@ export async function sendInstagramReply(
     }
     const data = await res.json() as { id?: string; error?: { message: string } };
     if (data.error) throw new Error(`Instagram Comment API error: ${data.error.message}`);
-    return { message_id: data.id ?? message.message_id };
+    return { message_id: data.id ?? inboundMessageId };
   }
 
   // Send a DM via Instagram Messaging API (requires IG user ID)
