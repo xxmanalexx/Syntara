@@ -201,8 +201,10 @@ Analyze this message and generate a suggested reply. Respond with valid JSON onl
         status,
       );
 
-      // Auto-send if GREEN and auto-reply is on
-      if (isGreenZone && shouldAutoReply) {
+      // Auto-send if GREEN zone, auto-reply on, AND it's a comment (has ig_media_id)
+      // DMs require instagram_manage_messages permission — skip auto-send for DMs until approved
+      const isComment = !!conversation.ig_media_id;
+      if (isGreenZone && shouldAutoReply && isComment) {
         const socialAccount = await prisma.socialAccount.findFirst({
           where: { workspaceId, channel: conversation.channel as ChannelType },
           select: { accessToken: true, instagramId: true },
