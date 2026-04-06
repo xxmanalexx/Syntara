@@ -119,6 +119,7 @@ enum MessageStatus {
   FAILED
   AI_DRAFT
   APPROVED
+  REJECTED
 }
 
 enum ConversationStatus {

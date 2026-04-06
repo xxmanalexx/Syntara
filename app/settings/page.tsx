@@ -28,6 +28,8 @@ interface WorkspaceSettings {
   ollamaEmbeddingsModel: string;
   nanobananaBaseUrl: string;
   nanobananaApiKey: string | null;
+  autoReplyEnabled: boolean;
+  autoReplyGreenOnly: boolean;
 }
 
 export default function SettingsPage() {
