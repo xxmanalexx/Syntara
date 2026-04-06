@@ -227,12 +227,15 @@ Analyze this message and generate a suggested reply. Respond with JSON only.`;
 
     // 5. Log activity
     if (lead) {
+      const logIntent = parsed.intent ?? "general";
+      const logConfidence = parsed.confidence ?? 0.5;
+      const logZone = parsed.response_zone ?? "YELLOW";
       await logActivity(
         workspaceId,
         lead.id,
         "message_received",
-        `Inbound message analyzed: ${parsed.intent} (confidence: ${(parsed.confidence * 100).toFixed(0)}%, zone: ${parsed.response_zone})`,
-        { intent: parsed.intent, confidence: parsed.confidence, response_zone: parsed.response_zone, suggested_reply: parsed.suggested_reply },
+        `Inbound message analyzed: ${logIntent} (confidence: ${(logConfidence * 100).toFixed(0)}%, zone: ${logZone})`,
+        { intent: logIntent, confidence: logConfidence, response_zone: logZone, suggested_reply: suggestedReply },
         conversationId,
       );
     }
