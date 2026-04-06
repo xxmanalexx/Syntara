@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { decryptToken } from "@/lib/crypto";
 import { AnalyticsSyncService } from "@/lib/services/analytics-service";
 
 export class AnalyticsWorker {
@@ -16,9 +17,15 @@ export class AnalyticsWorker {
 
     for (const account of accounts) {
       if (!account.accessToken || !account.instagramId) continue;
-
+      let accessToken: string;
       try {
-        const service = new AnalyticsSyncService(account.accessToken, account.instagramId);
+        accessToken = decryptToken(account.accessToken);
+      } catch {
+        console.warn(`Analytics worker: failed to decrypt token for account ${account.id}, skipping`);
+        continue;
+      }
+      try {
+        const service = new AnalyticsSyncService(accessToken, account.instagramId);
         const snapshots = await service.syncRecentMedia(account.workspaceId, account.id);
         synced += snapshots.length;
       } catch (err) {

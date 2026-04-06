@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { decryptToken } from "@/lib/crypto";
 import { getOrCreateContact } from "@/lib/domain/inbox/service";
 
 const INSTAGRAM_API = "https://graph.facebook.com/v19.0";
@@ -137,9 +138,16 @@ export async function runCommentPolling(): Promise<{ workspaces: number; newComm
   let totalNew = 0;
   for (const account of accounts) {
     if (!account.instagramId || !account.accessToken) continue;
+    let accessToken: string;
+    try {
+      accessToken = decryptToken(account.accessToken);
+    } catch {
+      console.warn(`[CommentPolling] Failed to decrypt token for workspace ${account.workspaceId}, skipping`);
+      continue;
+    }
     try {
       const service = new CommentPollingService(
-        account.accessToken,
+        accessToken,
         account.instagramId,
         account.workspaceId
       );

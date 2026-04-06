@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { decryptToken } from "@/lib/crypto";
 import { SchedulingService } from "@/lib/services/scheduling-service";
 import { InstagramPublishingService } from "@/lib/integrations/instagram/publishing-service";
 
@@ -73,11 +74,17 @@ export class PublishWorker {
       return { success: false, errorCode: "NO_ACCOUNT", errorMessage: "No connected Instagram account" };
     }
 
+    let accessToken: string;
+    try {
+      accessToken = decryptToken(socialAccount.accessToken);
+    } catch {
+      return { success: false, errorCode: "TOKEN_ERROR", errorMessage: "Failed to decrypt Instagram token — please reconnect your Instagram account" };
+    }
     const igUserId = socialAccount.instagramId ?? undefined;
     if (!igUserId) {
       return { success: false, errorCode: "NO_ACCOUNT", errorMessage: "Instagram account ID not found — please re-connect Instagram" };
     }
-    const igService = new InstagramPublishingService(socialAccount.accessToken);
+    const igService = new InstagramPublishingService(accessToken);
 
     // Get media assets — DraftMedia has { draftId, assetId, isPrimary, sortOrder }
     // The 'asset' relation is MediaAsset { id, url, mimeType, ... }

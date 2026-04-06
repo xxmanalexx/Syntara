@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { decryptToken } from "@/lib/crypto";
 import { InstagramInsightsService } from "@/lib/services/insights-service";
 
 function formatCount(n: number): string {
@@ -23,10 +24,17 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "No Instagram account connected" }, { status: 400 });
   }
 
+  let accessToken: string;
+  try {
+    accessToken = decryptToken(socialAccount.accessToken);
+  } catch {
+    return NextResponse.json({ error: "Instagram token invalid — please reconnect" }, { status: 400 });
+  }
+
   if (!query) return NextResponse.json({ hashtags: [], results: [] });
 
   try {
-    const ig = new InstagramInsightsService(socialAccount.accessToken, socialAccount.instagramId ?? "");
+    const ig = new InstagramInsightsService(accessToken, socialAccount.instagramId ?? "");
 
     const hashtags = await ig.searchHashtags(query);
 
