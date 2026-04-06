@@ -78,6 +78,20 @@ export default function ConversationPage() {
     }
   }
 
+  async function handleStatusChange(newStatus: string) {
+    try {
+      const token = localStorage.getItem("syntara_token") ?? "";
+      await fetch(`/api/inbox/conversations/${conversationId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      await fetchConversation();
+    } catch (err) {
+      console.error("[ConversationPage] status change error:", err);
+    }
+  }
+
   async function handleSend() {
     if (!replyText.trim() || sending) return;
     setSending(true);
@@ -171,13 +185,24 @@ export default function ConversationPage() {
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between">
             <h2 className="font-semibold text-gray-900">{getContactName()}</h2>
-            <button
-              onClick={fetchConversation}
-              className="text-xs text-gray-400 hover:text-violet-600 transition"
-              title="Reload messages"
-            >
-              ↻
-            </button>
+            <div className="flex items-center gap-2">
+              <select
+                value={conversation.status}
+                onChange={(e) => handleStatusChange(e.target.value as any)}
+                className="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:border-violet-400"
+              >
+                <option value="OPEN">Open</option>
+                <option value="CLOSED">Closed</option>
+                <option value="ARCHIVED">Archived</option>
+              </select>
+              <button
+                onClick={fetchConversation}
+                className="text-xs text-gray-400 hover:text-violet-600 transition"
+                title="Reload messages"
+              >
+                ↻
+              </button>
+            </div>
           </div>
           {conversation.ig_post_caption && (
             <div className="flex items-start gap-1.5 mt-1">

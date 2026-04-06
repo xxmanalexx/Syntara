@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 import { getConversationWithMessages, markConversationRead } from "@/lib/domain/inbox/service";
+import { prisma } from "@/lib/db";
+import type { ConversationStatus } from "@prisma/client";
 
 const JWT_SECRET = new TextEncoder().encode(
   process.env.NEXTAUTH_SECRET ?? "dev-secret-change-in-production",
@@ -44,6 +46,32 @@ export async function GET(
     return NextResponse.json({ conversation });
   } catch (err) {
     console.error(`[GET /api/inbox/conversations/${id}]`, err);
+    return NextResponse.json({ error: "Internal error" }, { status: 500 });
+  }
+}
+
+export async function PATCH(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> },
+): Promise<NextResponse> {
+  const payload = await getUserFromToken(req);
+  if (!payload) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!payload.workspaceId) return NextResponse.json({ error: "No workspace" }, { status: 400 });
+
+  const { id } = await params;
+
+  try {
+    const body = await req.json() as { status?: ConversationStatus };
+    if (!body.status) return NextResponse.json({ error: "status required" }, { status: 400 });
+
+    const conversation = await prisma.conversation.findUnique({ where: { id } });
+    if (!conversation) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (conversation.workspaceId !== payload.workspaceId) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+    const updated = await prisma.conversation.update({ where: { id }, data: { status: body.status } });
+    return NextResponse.json({ conversation: updated });
+  } catch (err) {
+    console.error(`[PATCH /api/inbox/conversations/${id}]`, err);
     return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }
 }
