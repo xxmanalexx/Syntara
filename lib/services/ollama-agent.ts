@@ -140,7 +140,7 @@ Analyze this message and generate a suggested reply. Respond with valid JSON onl
     }
 
     // 3. Update message with AI data — use safe fallbacks for optional fields
-    const suggestedReply = parsed.suggested_reply ?? parsed.reply;
+    const suggestedReply = parsed.suggested_reply ?? parsed.reply ?? "";
     await prisma.message.update({
       where: { id: messageId },
       data: {
@@ -188,14 +188,15 @@ Analyze this message and generate a suggested reply. Respond with valid JSON onl
       );
     }
 
-    if (parsed.suggested_reply) {
+
+    if (suggestedReply) {
       const status = (isGreenZone && (!greenOnlyMode || isGreenZone))
         ? "APPROVED"
         : "AI_DRAFT";
 
       const outboundMessage = await sendMessage(
         conversationId,
-        parsed.suggested_reply,
+        suggestedReply,
         "OUTBOUND",
         status,
       );
