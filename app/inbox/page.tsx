@@ -35,6 +35,7 @@ export default function InboxPage() {
   const [syncing, setSyncing] = useState(false);
   const [statusFilter, setStatusFilter] = useState<ConversationStatus | "ALL">("ALL");
   const [channelFilter, setChannelFilter] = useState<ChannelType | "ALL">("ALL");
+  const [convertingLead, setConvertingLead] = useState<string | null>(null);
 
   useEffect(() => {
     fetchConversations();
@@ -57,6 +58,25 @@ export default function InboxPage() {
       console.error("[InboxPage] sync error:", err);
     } finally {
       setSyncing(false);
+    }
+  }
+
+  async function handleConvertToLead(conversationId: string) {
+    setConvertingLead(conversationId);
+    try {
+      const token = localStorage.getItem("syntara_token") ?? "";
+      const res = await fetch(`/api/inbox/conversations/${conversationId}/convert-to-lead`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        await fetchConversations();
+      } else {
+        const err = await res.json();
+        alert(`Error: ${err.error}`);
+      }
+    } finally {
+      setConvertingLead(null);
     }
   }
 
@@ -240,6 +260,18 @@ export default function InboxPage() {
                       <span className="inline-flex items-center gap-1 text-xs text-violet-600 bg-violet-50 px-2 py-0.5 rounded-full">
                         Lead: {conv.lead.status}
                       </span>
+                    )}
+                    {!conv.lead && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleConvertToLead(conv.id);
+                        }}
+                        disabled={convertingLead === conv.id}
+                        className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-violet-50 text-violet-500 hover:bg-violet-100 hover:text-violet-700 transition disabled:opacity-50"
+                      >
+                        {convertingLead === conv.id ? "Converting..." : "+ Lead"}
+                      </button>
                     )}
                     {conv.assignedTo && (
                       <span className="inline-flex items-center gap-1 text-xs text-gray-500 bg-gray-50 px-2 py-0.5 rounded-full">
