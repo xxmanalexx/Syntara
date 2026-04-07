@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -38,7 +38,7 @@ const CRM_NAV = [
   { href: "/leads/analytics", icon: TrendingUp, label: "Lead Analytics" },
   { href: "/replies", icon: MessageSquare, label: "Saved Replies" },
   { href: "/tasks", icon: CheckCircle2, label: "Tasks" },
-  { href: "/approvals", icon: Bot, label: "Approvals" },
+  { href: "/approvals", icon: Bot, label: "AI Draft Approvals" },
 ];
 
 function CrontStatusDot({ running }: { running: boolean }) {
@@ -48,6 +48,15 @@ function CrontStatusDot({ running }: { running: boolean }) {
       running ? "bg-green-500 animate-pulse" : "bg-gray-300"
     )} />
   );
+}
+
+function isActive(pathname: string, href: string) {
+  // depth-1 links (e.g. /leads, /calendar): exact match only
+  // depth-2+ links (e.g. /leads/analytics): startsWith so child pages inherit
+  const depth = (href.match(/\//g) ?? []).length;
+  return depth === 1
+    ? pathname === href
+    : pathname === href || pathname.startsWith(href + "/");
 }
 
 export function Sidebar({ children, title, subtitle }: { children?: React.ReactNode; title?: string; subtitle?: string }) {
@@ -78,7 +87,6 @@ export function Sidebar({ children, title, subtitle }: { children?: React.ReactN
 
   useEffect(() => { fetchCronStatus(); }, [fetchCronStatus]);
 
-  // Launch cron worker via API
   async function handleLaunchCron() {
     setLaunching(true);
     try {
@@ -127,46 +135,40 @@ export function Sidebar({ children, title, subtitle }: { children?: React.ReactN
 
         {/* Navigation */}
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-          {NAV.map(({ href, icon: Icon, label }) => {
-            const active = pathname === href || pathname.startsWith(href + "/");
-            return (
-              <Link
-                key={href}
-                href={href}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition",
-                  active
-                    ? "bg-violet-50 text-violet-700"
-                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                )}
-              >
-                <Icon className="w-5 h-5 flex-shrink-0" />
-                {label}
-              </Link>
-            );
-          })}
+          {NAV.map(({ href, icon: Icon, label }) => (
+            <Link
+              key={href}
+              href={href}
+              className={cn(
+                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition",
+                isActive(pathname, href)
+                  ? "bg-violet-50 text-violet-700"
+                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+              )}
+            >
+              <Icon className="w-5 h-5 flex-shrink-0" />
+              {label}
+            </Link>
+          ))}
 
           {CRM_NAV.length > 0 && (
             <div className="pt-3 mt-3 border-t border-gray-100">
               <p className="px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wide">CRM</p>
-              {CRM_NAV.map(({ href, icon: Icon, label }) => {
-                const active = pathname === href || pathname.startsWith(href + "/");
-                return (
-                  <Link
-                    key={href}
-                    href={href}
-                    className={cn(
-                      "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition",
-                      active
-                        ? "bg-violet-50 text-violet-700"
-                        : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                    )}
-                  >
-                    <Icon className="w-5 h-5 flex-shrink-0" />
-                    {label}
-                  </Link>
-                );
-              })}
+              {CRM_NAV.map(({ href, icon: Icon, label }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition",
+                    isActive(pathname, href)
+                      ? "bg-violet-50 text-violet-700"
+                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                  )}
+                >
+                  <Icon className="w-5 h-5 flex-shrink-0" />
+                  {label}
+                </Link>
+              ))}
             </div>
           )}
 

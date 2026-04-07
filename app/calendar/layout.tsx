@@ -1,5 +1,5 @@
 import { Sidebar } from "@/components/layout/Sidebar";
 
-export default function LeadsLayout({ children }: { children: React.ReactNode }) {
+export default function CalendarLayout({ children }: { children: React.ReactNode }) {
   return <Sidebar>{children}</Sidebar>;
 }
