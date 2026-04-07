@@ -178,12 +178,19 @@ Analyze this message and generate a suggested reply. Respond with valid JSON onl
     if (wantsHuman) {
       console.log(`[Orchestrator] Human escalation detected in message ${messageId}`);
       // Try to find a lead linked to this contact
-      let leadId = lead?.id;
+      let leadId: string | undefined = lead?.id;
       if (!leadId) {
         const existingLead = await prisma.lead.findFirst({
           where: { contactId: contact.id, workspaceId },
         });
-        leadId = existingLead?.id ?? null;
+        leadId = existingLead?.id;
+        // Link conversation to this lead so future events don't need the lookup
+        if (leadId && !conversation.leadId) {
+          await prisma.conversation.update({
+            where: { id: conversation.id },
+            data: { leadId },
+          });
+        }
       }
       // Create a high-priority task for the workspace admin
       await prisma.task.create({
@@ -233,12 +240,12 @@ Analyze this message and generate a suggested reply. Respond with valid JSON onl
     // Handle explicit AI escalation
     if (nextAction === "escalate_to_human") {
       console.log("[Orchestrator] AI triggered escalation to human");
-      let escalationLeadId = lead?.id;
+      let escalationLeadId: string | undefined = lead?.id;
       if (!escalationLeadId) {
         const existingLead = await prisma.lead.findFirst({
           where: { contactId: contact.id, workspaceId },
         });
-        escalationLeadId = existingLead?.id ?? null;
+        escalationLeadId = existingLead?.id;
       }
       await prisma.task.create({
         data: {
