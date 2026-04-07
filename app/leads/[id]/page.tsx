@@ -570,6 +570,7 @@ export default function LeadDetailPage() {
             </div>
           )}
         </div>
+      )}
 
       {activeTab === "conversation" && (
         <div className="bg-white rounded-xl border border-gray-100 p-5">

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { CheckCircle2, Circle, Clock, AlertCircle, Plus, Trash2 } from "lucide-react";
+import { CheckCircle2, Circle, Clock, AlertCircle, Plus } from "lucide-react";
 
 interface Task {
   id: string;
@@ -46,6 +46,7 @@ export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [form, setForm] = useState({ title: "", description: "", type: "FOLLOW_UP" as Task["type"], priority: "MEDIUM" as Task["priority"], dueDate: "" });
   const [saving, setSaving] = useState(false);
   const [toggling, setToggling] = useState<string | null>(null);
@@ -73,19 +74,59 @@ export default function TasksPage() {
     }
   }
 
+  function openNewModal() {
+    setEditingTask(null);
+    setForm({ title: "", description: "", type: "FOLLOW_UP", priority: "MEDIUM", dueDate: "" });
+    setShowModal(true);
+  }
+
+  function openEditModal(task: Task) {
+    setEditingTask(task);
+    setForm({
+      title: task.title,
+      description: task.description ?? "",
+      type: task.type,
+      priority: task.priority,
+      dueDate: task.dueDate ?? "",
+    });
+    setShowModal(true);
+  }
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
     try {
       const token = localStorage.getItem("syntara_token") ?? "";
-      const res = await fetch("/api/tasks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ ...form, dueDate: form.dueDate || undefined }),
-      });
-      if (res.ok) { setShowModal(false); setForm({ title: "", description: "", type: "FOLLOW_UP", priority: "MEDIUM", dueDate: "" }); fetchTasks(); }
+      if (editingTask) {
+        await fetch(`/api/tasks/${editingTask.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ ...form, dueDate: form.dueDate || undefined }),
+        });
+      } else {
+        await fetch("/api/tasks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ ...form, dueDate: form.dueDate || undefined }),
+        });
+      }
+      setShowModal(false);
+      setForm({ title: "", description: "", type: "FOLLOW_UP", priority: "MEDIUM", dueDate: "" });
+      setEditingTask(null);
+      fetchTasks();
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleDelete(taskId: string) {
+    if (!confirm("Delete this task?")) return;
+    try {
+      const token = localStorage.getItem("syntara_token") ?? "";
+      await fetch(`/api/tasks/${taskId}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+      fetchTasks();
+    } catch (err) {
+      console.error("[handleDelete]", err);
     }
   }
 
@@ -93,9 +134,12 @@ export default function TasksPage() {
     setToggling(task.id);
     try {
       const token = localStorage.getItem("syntara_token") ?? "";
-      // Toggle: if completed, send delete; if not, would need a PATCH endpoint
-      // For now, just refresh
-      await fetchTasks();
+      await fetch(`/api/tasks/${task.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ completed: !task.completedAt }),
+      });
+      fetchTasks();
     } finally {
       setToggling(null);
     }
@@ -114,7 +158,7 @@ export default function TasksPage() {
     const done = !!task.completedAt;
 
     return (
-      <div className={`flex items-start gap-3 p-3.5 rounded-xl border transition ${done ? "bg-gray-50 border-gray-100 opacity-60" : "bg-white border-gray-100 hover:border-gray-200"}`}>
+      <div className={`flex items-start gap-3 p-3.5 rounded-xl border transition group ${done ? "bg-gray-50 border-gray-100 opacity-60" : "bg-white border-gray-100 hover:border-gray-200"}`}>
         <button
           onClick={() => toggleComplete(task)}
           disabled={toggling === task.id}
@@ -125,7 +169,25 @@ export default function TasksPage() {
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
             <p className={`text-sm font-medium ${done ? "line-through text-gray-400" : "text-gray-800"}`}>{task.title}</p>
-            <span className={`text-xs px-1.5 py-0.5 rounded-full flex-shrink-0 ${priority.bg} ${priority.color}`}>{priority.label}</span>
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition">
+                <button
+                  onClick={() => openEditModal(task)}
+                  className="text-xs text-gray-400 hover:text-orange-500 px-1 py-0.5 rounded"
+                  title="Edit task"
+                >
+                  ✏️
+                </button>
+                <button
+                  onClick={() => handleDelete(task.id)}
+                  className="text-xs text-gray-400 hover:text-red-500 px-1 py-0.5 rounded"
+                  title="Delete task"
+                >
+                  🗑
+                </button>
+              </div>
+              <span className={`text-xs px-1.5 py-0.5 rounded-full ${priority.bg} ${priority.color}`}>{priority.label}</span>
+            </div>
           </div>
           {task.description && <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{task.description}</p>}
           <div className="flex items-center gap-2 mt-2 flex-wrap">
@@ -161,7 +223,7 @@ export default function TasksPage() {
           </div>
         </div>
         <button
-          onClick={() => setShowModal(true)}
+          onClick={openNewModal}
           className="flex items-center gap-2 px-4 py-2 rounded-xl bg-orange-600 text-white text-sm font-medium hover:bg-orange-700 transition"
         >
           <Plus className="w-4 h-4" />
@@ -215,12 +277,12 @@ export default function TasksPage() {
         </div>
       )}
 
-      {/* Modal */}
+      {/* Create / Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={(e) => e.target === e.currentTarget && setShowModal(false)}>
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
             <div className="flex items-center justify-between p-5 border-b border-gray-100">
-              <h3 className="font-semibold text-gray-900">New Task</h3>
+              <h3 className="font-semibold text-gray-900">{editingTask ? "Edit Task" : "New Task"}</h3>
               <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
             </div>
             <form onSubmit={handleSave} className="p-5 space-y-4">
@@ -228,19 +290,21 @@ export default function TasksPage() {
                 <label className="block text-xs font-medium text-gray-500 mb-1">Title *</label>
                 <div className="relative">
                   <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required placeholder="What needs to be done?" className="w-full px-3 py-2 pr-20 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400" />
-                  <select
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      if (!val) return;
-                      const reply = savedReplies.find((r) => r.id === val);
-                      if (reply) setForm({ ...form, title: reply.title, description: reply.content });
-                      e.target.value = "";
-                    }}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 bg-transparent border-none cursor-pointer focus:outline-none max-w-[120px]"
-                  >
-                    <option value="">Pick from saved →</option>
-                    {savedReplies.map((r) => <option key={r.id} value={r.id}>{r.title}</option>)}
-                  </select>
+                  {!editingTask && (
+                    <select
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (!val) return;
+                        const reply = savedReplies.find((r) => r.id === val);
+                        if (reply) setForm({ ...form, title: reply.title, description: reply.content });
+                        e.target.value = "";
+                      }}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 bg-transparent border-none cursor-pointer focus:outline-none max-w-[120px]"
+                    >
+                      <option value="">Pick from saved →</option>
+                      {savedReplies.map((r) => <option key={r.id} value={r.id}>{r.title}</option>)}
+                    </select>
+                  )}
                 </div>
               </div>
               {form.description && (
@@ -274,7 +338,7 @@ export default function TasksPage() {
               </div>
               <div className="flex items-center gap-3 pt-2">
                 <button type="submit" disabled={saving} className="flex-1 py-2.5 rounded-xl bg-orange-600 text-white text-sm font-medium hover:bg-orange-700 transition disabled:opacity-50">
-                  {saving ? "Creating..." : "Create Task"}
+                  {saving ? (editingTask ? "Saving..." : "Creating...") : (editingTask ? "Save Changes" : "Create Task")}
                 </button>
                 <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2.5 rounded-xl border border-gray-200 text-gray-600 text-sm hover:bg-gray-50 transition">Cancel</button>
               </div>
