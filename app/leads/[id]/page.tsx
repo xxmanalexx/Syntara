@@ -114,11 +114,14 @@ export default function LeadDetailPage() {
   const [selectedReplyContent, setSelectedReplyContent] = useState("");
   const [taskToEdit, setTaskToEdit] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
+  const [allTasks, setAllTasks] = useState<{ id: string; title: string; leadId: string | null }[]>([]);
+  const [showTaskPicker, setShowTaskPicker] = useState(false);
 
   useEffect(() => {
     fetchLead();
     fetchStages();
     fetchSavedReplies();
+    fetchAllTasks();
   }, [leadId]);
 
   async function fetchSavedReplies() {
@@ -133,6 +136,21 @@ export default function LeadDetailPage() {
       }
     } catch (err) {
       console.error("[fetchSavedReplies]", err);
+    }
+  }
+
+  async function fetchAllTasks() {
+    try {
+      const token = localStorage.getItem("syntara_token") ?? "";
+      const res = await fetch("/api/tasks?includeCompleted=true", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAllTasks(data.tasks ?? []);
+      }
+    } catch (err) {
+      console.error("[fetchAllTasks]", err);
     }
   }
 
@@ -228,6 +246,7 @@ export default function LeadDetailPage() {
         setNewTaskTitle("");
         setSelectedReplyContent("");
         await fetchLead();
+        await fetchAllTasks();
       } else {
         const err = await res.text();
         console.error("[handleAddTask] API error:", res.status, err);
@@ -236,6 +255,26 @@ export default function LeadDetailPage() {
       console.error("[LeadDetailPage] add task error:", err);
     } finally {
       setAddingTask(false);
+    }
+  }
+
+  async function handleLinkTask(taskId: string) {
+    try {
+      const token = localStorage.getItem("syntara_token") ?? "";
+      const res = await fetch(`/api/tasks/${taskId}/lead`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ leadId }),
+      });
+      if (res.ok) {
+        await fetchLead();
+        await fetchAllTasks();
+      } else {
+        const err = await res.text();
+        console.error("[handleLinkTask] API error:", res.status, err);
+      }
+    } catch (err) {
+      console.error("[handleLinkTask]", err);
     }
   }
 
@@ -448,32 +487,23 @@ export default function LeadDetailPage() {
 
       {activeTab === "tasks" && (
         <div className="bg-white rounded-xl border border-gray-100 p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold text-gray-700">Add Task</h3>
+            <button
+              onClick={() => setShowTaskPicker(true)}
+              className="text-xs text-violet-600 hover:text-violet-700 font-medium"
+            >
+              + Link existing task
+            </button>
+          </div>
           <form onSubmit={handleAddTask} className="flex gap-3 mb-5">
             <div className="relative flex-1">
               <input
                 value={newTaskTitle}
                 onChange={(e) => setNewTaskTitle(e.target.value)}
-                placeholder="Add a task..."
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-violet-400 pr-24"
+                placeholder="Create a new task..."
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-violet-400"
               />
-              <select
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (!val) return;
-                  const reply = savedReplies.find((r) => r.id === val);
-                  if (reply) {
-                    setNewTaskTitle(reply.title);
-                    setSelectedReplyContent(reply.content);
-                  }
-                  e.target.value = "";
-                }}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 bg-transparent border-none cursor-pointer focus:outline-none"
-              >
-                <option value="">Pick from saved →</option>
-                {savedReplies.map((r) => (
-                  <option key={r.id} value={r.id}>{r.title}</option>
-                ))}
-              </select>
             </div>
             <button
               type="submit"
@@ -484,18 +514,6 @@ export default function LeadDetailPage() {
               Add
             </button>
           </form>
-          {selectedReplyContent && (
-            <div className="mb-4 p-3 rounded-lg bg-violet-50 border border-violet-100 text-sm text-violet-700">
-              <p className="font-medium text-violet-600 mb-1">Reply content:</p>
-              <p className="whitespace-pre-wrap">{selectedReplyContent}</p>
-              <button
-                onClick={() => { setSelectedReplyContent(""); setNewTaskTitle(""); }}
-                className="mt-2 text-xs text-violet-400 hover:text-violet-600"
-              >
-                Clear
-              </button>
-            </div>
-          )}
 
           {lead.tasks.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-8">No tasks yet</p>
@@ -599,7 +617,33 @@ export default function LeadDetailPage() {
             </div>
           )}
         </div>
-      )}
+
+        {/* Task Picker Modal */}
+        {showTaskPicker && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={(e) => e.target === e.currentTarget && setShowTaskPicker(false)}>
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
+              <div className="flex items-center justify-between p-5 border-b border-gray-100">
+                <h3 className="font-semibold text-gray-900">Link Existing Task</h3>
+                <button onClick={() => setShowTaskPicker(false)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+              </div>
+              <div className="p-5 space-y-2 max-h-80 overflow-y-auto">
+                {allTasks.filter((t) => !t.leadId).length === 0 && (
+                  <p className="text-sm text-gray-400 text-center py-6">No unassigned tasks available</p>
+                )}
+                {allTasks.filter((t) => !t.leadId).map((task) => (
+                  <button
+                    key={task.id}
+                    onClick={() => { handleLinkTask(task.id); setShowTaskPicker(false); }}
+                    className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-violet-50 text-sm text-gray-800 transition"
+                  >
+                    {task.title}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
       {activeTab === "conversation" && (
         <div className="bg-white rounded-xl border border-gray-100 p-5">
