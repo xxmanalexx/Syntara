@@ -202,6 +202,25 @@ export default function ConversationPage() {
               >
                 ↻
               </button>
+              <button
+                onClick={async () => {
+                  if (!confirm("Delete this conversation? This cannot be undone.")) return;
+                  try {
+                    const token = localStorage.getItem("syntara_token") ?? "";
+                    const res = await fetch(`/api/inbox/conversations/${conversationId}`, {
+                      method: "DELETE",
+                      headers: { Authorization: `Bearer ${token}` },
+                    });
+                    if (res.ok) router.push("/inbox");
+                  } catch (err) {
+                    console.error("[ConversationPage] delete error:", err);
+                  }
+                }}
+                className="text-xs text-gray-400 hover:text-red-500 transition px-2 py-1"
+                title="Delete conversation"
+              >
+                🗑
+              </button>
             </div>
           </div>
           {conversation.ig_post_caption && (

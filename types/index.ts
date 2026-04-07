@@ -287,6 +287,7 @@ export interface OllamaGenerateResponse {
   done: boolean;
   totalDuration?: number;
   context?: number[];
+  thinking?: string; // minimax-m2.7:cloud emits reasoning tokens
 }
 
 export interface OllamaEmbeddingRequest {

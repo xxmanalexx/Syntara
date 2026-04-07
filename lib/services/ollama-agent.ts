@@ -21,7 +21,7 @@ const intentSchema = z.object({
   suggested_reply: z.string().optional(),
   reply: z.string().optional(), // some models use 'reply' instead
   response_zone: z.enum(["GREEN", "YELLOW", "RED"]).optional(),
-  next_action: z.enum(["send_reply", "draft_for_approval", "create_task", "move_stage", "skip"]).optional(),
+  next_action: z.enum(["send_reply", "draft_for_approval", "create_task", "move_stage", "skip", "schedule_demo", "send_demo_link", "gather_info"]).optional(),
   suggested_stage: z.string().optional(),
   confidence: z.number().min(0).max(1).optional(),
   should_create_lead: z.boolean().optional(),
@@ -73,6 +73,12 @@ export class LeadOrchestrator {
     });
     if (!message) throw new Error(`Message ${messageId} not found`);
 
+    // Guard: skip if already processed (prevents duplicate runs from re-polling)
+    if (message.ai_suggestion && message.ai_confidence !== null) {
+      console.log(`[LeadOrchestrator] Message ${messageId} already has AI suggestion, skipping`);
+      return;
+    }
+
     const { conversation } = message;
     const { contact, lead } = conversation;
 
@@ -119,7 +125,6 @@ Analyze this message and generate a suggested reply. Respond with valid JSON onl
 {"intent":"pricing_inquiry","reply":"Hi! Thanks for reaching out. Our pricing starts at...","confidence":0.85,"response_zone":"GREEN","next_action":"draft_for_approval"}`;
 
     // 2. Call Ollama
-    console.log("[Orchestrator] about to call Ollama, messageId:", messageId);
     let parsed: IntentOutput;
     try {
       parsed = await ollamaClient.generateJSON(
@@ -129,8 +134,9 @@ Analyze this message and generate a suggested reply. Respond with valid JSON onl
           prompt: userPrompt,
         },
         intentSchema,
-        2,
+        3,
       );
+      console.log("[Orchestrator] generateJSON returned:", JSON.stringify(parsed));
     } catch (err) {
       console.error("[LeadOrchestrator] Ollama error:", err);
       await prisma.message.update({
