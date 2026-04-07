@@ -288,7 +288,7 @@ export default function ConversationPage() {
           return (
             <div
               key={msg.id}
-              className={`flex ${isInbound ? "justify-start" : "justify-end"}`}
+              className={`flex ${isInbound ? "justify-start" : "justify-end"} group`}
             >
               <div className={`max-w-[70%] flex ${isInbound ? "flex-row" : "flex-row-reverse"} items-end gap-2`}>
                 <div className={`w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center ${
@@ -305,12 +305,35 @@ export default function ConversationPage() {
                   )}
                 </div>
                 <div>
-                  <div className={`rounded-2xl px-4 py-2.5 text-sm ${
-                    isInbound
-                      ? "bg-gray-100 text-gray-900 rounded-bl-md"
-                      : "bg-violet-600 text-white rounded-br-md"
-                  }`}>
-                    {msg.content ?? "(media/attachment)"}
+                  <div className="relative">
+                    <div className={`rounded-2xl px-4 py-2.5 text-sm ${
+                      isInbound
+                        ? "bg-gray-100 text-gray-900 rounded-bl-md"
+                        : "bg-violet-600 text-white rounded-br-md"
+                    }`}>
+                      {msg.content ?? "(media/attachment)"}
+                    </div>
+                    {!isInbound && (
+                      <button
+                        onClick={async () => {
+                          if (!confirm("Delete this message?")) return;
+                          try {
+                            const token = localStorage.getItem("syntara_token") ?? "";
+                            await fetch(`/api/inbox/conversations/${conversationId}/messages/${msg.id}`, {
+                              method: "DELETE",
+                              headers: { Authorization: `Bearer ${token}` },
+                            });
+                            await fetchConversation();
+                          } catch (err) {
+                            console.error("[delete message]", err);
+                          }
+                        }}
+                        className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-100 text-red-500 flex items-center justify-center opacity-0 group-hover:opacity-100 transition hover:bg-red-200"
+                        title="Delete message"
+                      >
+                        <span style={{ fontSize: "10px" }}>🗑</span>
+                      </button>
+                    )}
                   </div>
                   <div className={`flex items-center gap-1.5 mt-1 ${isInbound ? "flex-row" : "flex-row-reverse"}`}>
                     <span className="text-xs text-gray-400">
