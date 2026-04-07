@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
-import { Inbox, Instagram, Filter } from "lucide-react";
+import { Inbox, Instagram, Filter, Trash2 } from "lucide-react";
 import type { ConversationStatus, ChannelType } from "@prisma/client";
 
 interface ConversationContact {
@@ -36,6 +36,7 @@ export default function InboxPage() {
   const [statusFilter, setStatusFilter] = useState<ConversationStatus | "ALL">("ALL");
   const [channelFilter, setChannelFilter] = useState<ChannelType | "ALL">("ALL");
   const [convertingLead, setConvertingLead] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchConversations();
@@ -58,6 +59,26 @@ export default function InboxPage() {
       console.error("[InboxPage] sync error:", err);
     } finally {
       setSyncing(false);
+    }
+  }
+
+  async function handleDeleteConversation(conversationId: string) {
+    if (!confirm("Delete this conversation? This cannot be undone.")) return;
+    setDeletingId(conversationId);
+    try {
+      const token = localStorage.getItem("syntara_token") ?? "";
+      const res = await fetch(`/api/inbox/conversations/${conversationId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        await fetchConversations();
+      } else {
+        const err = await res.json();
+        alert(`Error: ${err.error}`);
+      }
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -285,6 +306,21 @@ export default function InboxPage() {
                     }`}>
                       {conv.status}
                     </span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteConversation(conv.id);
+                      }}
+                      disabled={deletingId === conv.id}
+                      className="ml-auto flex-shrink-0 p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 transition disabled:opacity-50"
+                      title="Delete conversation"
+                    >
+                      {deletingId === conv.id ? (
+                        <span className="loading-spinner w-4 h-4" />
+                      ) : (
+                        <Trash2 className="w-4 h-4" />
+                      )}
+                    </button>
                   </div>
                 </div>
               </div>

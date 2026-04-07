@@ -50,6 +50,31 @@ export async function GET(
   }
 }
 
+export async function DELETE(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> },
+): Promise<NextResponse> {
+  const payload = await getUserFromToken(req);
+  if (!payload) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!payload.workspaceId) return NextResponse.json({ error: "No workspace" }, { status: 400 });
+
+  const { id } = await params;
+
+  try {
+    const conversation = await prisma.conversation.findUnique({ where: { id } });
+    if (!conversation) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (conversation.workspaceId !== payload.workspaceId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    await prisma.conversation.delete({ where: { id } });
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error(`[DELETE /api/inbox/conversations/${id}]`, err);
+    return NextResponse.json({ error: "Internal error" }, { status: 500 });
+  }
+}
+
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> },

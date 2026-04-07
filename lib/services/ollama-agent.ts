@@ -119,6 +119,7 @@ Analyze this message and generate a suggested reply. Respond with valid JSON onl
 {"intent":"pricing_inquiry","reply":"Hi! Thanks for reaching out. Our pricing starts at...","confidence":0.85,"response_zone":"GREEN","next_action":"draft_for_approval"}`;
 
     // 2. Call Ollama
+    console.log("[Orchestrator] about to call Ollama, messageId:", messageId);
     let parsed: IntentOutput;
     try {
       parsed = await ollamaClient.generateJSON(
@@ -141,6 +142,7 @@ Analyze this message and generate a suggested reply. Respond with valid JSON onl
 
     // 3. Update message with AI data — use safe fallbacks for optional fields
     const suggestedReply = parsed.suggested_reply ?? parsed.reply ?? "";
+    console.log("[Orchestrator] parsed reply:", JSON.stringify(parsed), "| suggestedReply:", suggestedReply.slice(0, 50));
     await prisma.message.update({
       where: { id: messageId },
       data: {
@@ -158,8 +160,10 @@ Analyze this message and generate a suggested reply. Respond with valid JSON onl
     const greenOnlyMode = settings?.autoReplyGreenOnly === true;
 
     const nextAction = parsed.next_action ?? (suggestedReply ? "draft_for_approval" : "skip");
+    console.log("[Orchestrator] nextAction:", nextAction, "| suggestedReply:", suggestedReply.slice(0,30), "| shouldAutoReply:", shouldAutoReply, "| isGreenZone:", isGreenZone);
 
     if (nextAction === "skip") {
+      console.log("[Orchestrator] skipping — no suggested reply");
       return;
     }
 
