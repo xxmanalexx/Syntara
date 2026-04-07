@@ -49,8 +49,19 @@ export default function TasksPage() {
   const [form, setForm] = useState({ title: "", description: "", type: "FOLLOW_UP" as Task["type"], priority: "MEDIUM" as Task["priority"], dueDate: "" });
   const [saving, setSaving] = useState(false);
   const [toggling, setToggling] = useState<string | null>(null);
+  const [savedReplies, setSavedReplies] = useState<{ id: string; title: string; content: string }[]>([]);
 
-  useEffect(() => { fetchTasks(); }, []);
+  useEffect(() => { fetchTasks(); fetchSavedReplies(); }, []);
+
+  async function fetchSavedReplies() {
+    try {
+      const token = localStorage.getItem("syntara_token") ?? "";
+      const res = await fetch("/api/templates/saved-replies", { headers: { Authorization: `Bearer ${token}` } });
+      if (res.ok) setSavedReplies((await res.json()).replies ?? []);
+    } catch (err) {
+      console.error("[TasksPage] fetchSavedReplies", err);
+    }
+  }
 
   async function fetchTasks() {
     try {
@@ -215,8 +226,30 @@ export default function TasksPage() {
             <form onSubmit={handleSave} className="p-5 space-y-4">
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1">Title *</label>
-                <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required placeholder="What needs to be done?" className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400" />
+                <div className="relative">
+                  <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required placeholder="What needs to be done?" className="w-full px-3 py-2 pr-20 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400" />
+                  <select
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (!val) return;
+                      const reply = savedReplies.find((r) => r.id === val);
+                      if (reply) setForm({ ...form, title: reply.title, description: reply.content });
+                      e.target.value = "";
+                    }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 bg-transparent border-none cursor-pointer focus:outline-none max-w-[120px]"
+                  >
+                    <option value="">Pick from saved →</option>
+                    {savedReplies.map((r) => <option key={r.id} value={r.id}>{r.title}</option>)}
+                  </select>
+                </div>
               </div>
+              {form.description && (
+                <div className="p-3 rounded-lg bg-orange-50 border border-orange-100 text-sm text-orange-700">
+                  <p className="font-medium text-orange-600 mb-1">Content:</p>
+                  <p className="whitespace-pre-wrap">{form.description}</p>
+                  <button type="button" onClick={() => setForm({ ...form, description: "" })} className="mt-1 text-xs text-orange-400 hover:text-orange-600">Clear</button>
+                </div>
+              )}
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1">Description</label>
                 <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} placeholder="Optional details..." className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400 resize-none" />
