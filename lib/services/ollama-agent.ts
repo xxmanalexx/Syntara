@@ -177,11 +177,19 @@ Analyze this message and generate a suggested reply. Respond with valid JSON onl
     const wantsHuman = detectEscalation(message.content ?? "");
     if (wantsHuman) {
       console.log(`[Orchestrator] Human escalation detected in message ${messageId}`);
+      // Try to find a lead linked to this contact
+      let leadId = lead?.id;
+      if (!leadId) {
+        const existingLead = await prisma.lead.findFirst({
+          where: { contactId: contact.id, workspaceId },
+        });
+        leadId = existingLead?.id ?? null;
+      }
       // Create a high-priority task for the workspace admin
       await prisma.task.create({
         data: {
           workspaceId,
-          leadId: lead?.id ?? undefined,
+          leadId: leadId ?? undefined,
           title: `🔴 Human escalation — ${contact.displayName ?? contact.username ?? "Unknown contact"}`,
           description: `Customer requested to speak with a human or admin.\n\nMessage: "${message.content}"\n\nSource: ${conversation.channel}`,
           type: "FOLLOW_UP",
@@ -193,14 +201,14 @@ Analyze this message and generate a suggested reply. Respond with valid JSON onl
         where: { id: messageId },
         data: { response_zone: "RED" },
       });
-      // Log escalation
-      if (lead) {
+      // Log escalation to lead if exists
+      if (leadId) {
         await logActivity(
           workspaceId,
-          lead.id,
+          leadId,
           "escalation",
           `Customer requested to speak with human/admin: "${message.content}"`,
-          { escalation: true, conversationId },
+          { escalation: true, conversationId, source: conversation.channel },
           conversationId,
         );
       }
@@ -225,10 +233,17 @@ Analyze this message and generate a suggested reply. Respond with valid JSON onl
     // Handle explicit AI escalation
     if (nextAction === "escalate_to_human") {
       console.log("[Orchestrator] AI triggered escalation to human");
+      let escalationLeadId = lead?.id;
+      if (!escalationLeadId) {
+        const existingLead = await prisma.lead.findFirst({
+          where: { contactId: contact.id, workspaceId },
+        });
+        escalationLeadId = existingLead?.id ?? null;
+      }
       await prisma.task.create({
         data: {
           workspaceId,
-          leadId: lead?.id ?? undefined,
+          leadId: escalationLeadId ?? undefined,
           title: `🔴 Human escalation — ${contact.displayName ?? contact.username ?? "Unknown contact"}`,
           description: `AI flagged this conversation for human attention.\n\nIntent: ${parsed.intent ?? "unknown"}\n\nMessage: "${message.content}"`,
           type: "FOLLOW_UP",
@@ -239,11 +254,11 @@ Analyze this message and generate a suggested reply. Respond with valid JSON onl
         where: { id: messageId },
         data: { response_zone: "RED" },
       });
-      if (lead) {
+      if (escalationLeadId) {
         await logActivity(
-          workspaceId, lead.id, "escalation",
+          workspaceId, escalationLeadId, "escalation",
           `AI flagged for human attention — intent: ${parsed.intent ?? "unknown"}`,
-          { escalation: true, intent: parsed.intent }, conversationId,
+          { escalation: true, intent: parsed.intent, conversationId }, conversationId,
         );
       }
       return;

@@ -46,7 +46,7 @@ export default function InboxPage() {
   async function syncComments() {
     setSyncing(true);
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30_000); // 30s client timeout
+    const timeout = setTimeout(() => controller.abort(), 120_000); // 120s — Ollama can be slow
     try {
       const token = localStorage.getItem("syntara_token") ?? "";
       const res = await fetch("/api/cron/poll-comments", {
