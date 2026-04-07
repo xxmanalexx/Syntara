@@ -37,6 +37,7 @@ export default function InboxPage() {
   const [channelFilter, setChannelFilter] = useState<ChannelType | "ALL">("ALL");
   const [convertingLead, setConvertingLead] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [lastSyncResult, setLastSyncResult] = useState<{ ok: boolean; msg: string; details?: string } | null>(null);
 
   useEffect(() => {
     fetchConversations();
@@ -44,19 +45,39 @@ export default function InboxPage() {
 
   async function syncComments() {
     setSyncing(true);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30_000); // 30s client timeout
     try {
       const token = localStorage.getItem("syntara_token") ?? "";
       const res = await fetch("/api/cron/poll-comments", {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
+        signal: controller.signal,
       });
+      clearTimeout(timeout);
       if (res.ok) {
+        const data = await res.json();
+        console.log("[InboxPage] sync result:", JSON.stringify(data));
+        setLastSyncResult({
+          ok: true,
+          msg: `Synced — ${data.newComments ?? 0} new comments from ${data.workspacesChecked ?? 0} workspace(s)`,
+          details: `Last sync: ${new Date().toLocaleTimeString()}`,
+        });
         await fetchConversations();
       } else {
+        const err = await res.text();
+        console.error("[InboxPage] sync error:", res.status, err);
+        setLastSyncResult({ ok: false, msg: `Sync failed (${res.status})`, details: err });
         await fetchConversations();
       }
-    } catch (err) {
-      console.error("[InboxPage] sync error:", err);
+    } catch (err: any) {
+      clearTimeout(timeout);
+      if (err?.name === "AbortError") {
+        console.error("[InboxPage] sync timed out after 30s — is Ollama running?");
+      } else {
+        console.error("[InboxPage] sync error:", err);
+      }
+      await fetchConversations();
     } finally {
       setSyncing(false);
     }
@@ -166,6 +187,20 @@ export default function InboxPage() {
           {syncing ? "Syncing..." : "Sync from Instagram"}
         </button>
       </div>
+
+      {/* Sync debug bar */}
+      {lastSyncResult && (
+        <div className={`mb-4 px-4 py-2.5 rounded-lg text-sm border ${
+          lastSyncResult.ok
+            ? "bg-green-50 border-green-200 text-green-700"
+            : "bg-red-50 border-red-200 text-red-700"
+        }`}>
+          <span className="font-medium">{lastSyncResult.msg}</span>
+          {lastSyncResult.details && (
+            <span className="ml-2 text-xs opacity-75">· {lastSyncResult.details}</span>
+          )}
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex items-center gap-3 mb-6">
