@@ -193,13 +193,18 @@ export default function LeadDetailPage() {
     setAddingTask(true);
     try {
       const token = localStorage.getItem("syntara_token") ?? "";
-      await fetch("/api/tasks", {
+      const res = await fetch("/api/tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ leadId, title: newTaskTitle.trim() }),
       });
-      setNewTaskTitle("");
-      await fetchLead();
+      if (res.ok) {
+        setNewTaskTitle("");
+        await fetchLead();
+      } else {
+        const err = await res.text();
+        console.error("[handleAddTask] API error:", res.status, err);
+      }
     } catch (err) {
       console.error("[LeadDetailPage] add task error:", err);
     } finally {
