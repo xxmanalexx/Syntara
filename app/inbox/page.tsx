@@ -313,8 +313,14 @@ export default function InboxPage() {
                       </span>
                     )}
                     {conv.lead && (
-                      <span className="inline-flex items-center gap-1 text-xs text-violet-600 bg-violet-50 px-2 py-0.5 rounded-full">
-                        Lead: {conv.lead.status}
+                      <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium ${
+                        conv.lead.status === "WON"
+                          ? "bg-green-50 text-green-600"
+                          : conv.lead.status === "LOST"
+                          ? "bg-red-50 text-red-500"
+                          : "bg-violet-50 text-violet-600"
+                      }`}>
+                        {conv.lead.status === "WON" ? "✅ Won" : conv.lead.status === "LOST" ? "❌ Lost" : `Lead: ${conv.lead.status}`}
                       </span>
                     )}
                     {!conv.lead && (
