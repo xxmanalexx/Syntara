@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 import { getLeadWithDetails, updateLead } from "@/lib/domain/leads/service";
+import { prisma } from "@/lib/db";
 
 const JWT_SECRET = new TextEncoder().encode(
   process.env.NEXTAUTH_SECRET ?? "dev-secret-change-in-production",
@@ -61,6 +62,31 @@ export async function PATCH(
     return NextResponse.json({ lead });
   } catch (err) {
     console.error(`[PATCH /api/leads/${id}]`, err);
+    return NextResponse.json({ error: "Internal error" }, { status: 500 });
+  }
+}
+
+export async function DELETE(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> },
+): Promise<NextResponse> {
+  const payload = await getUserFromToken(req);
+  if (!payload) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!payload.workspaceId) return NextResponse.json({ error: "No workspace" }, { status: 400 });
+
+  const { id } = await params;
+
+  try {
+    const lead = await prisma.lead.findUnique({ where: { id } });
+    if (!lead) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (lead.workspaceId !== payload.workspaceId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    await prisma.lead.delete({ where: { id } });
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error(`[DELETE /api/leads/${id}]`, err);
     return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }
 }

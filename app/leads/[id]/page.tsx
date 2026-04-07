@@ -18,6 +18,8 @@ import {
   LayoutGrid,
   CheckSquare,
   Clock,
+  Trash2,
+  Instagram,
 } from "lucide-react";
 
 interface Contact {
@@ -77,7 +79,7 @@ interface Lead {
   contact: Contact;
   tasks: Task[];
   activities: LeadActivity[];
-  conversation?: { id: string } | null;
+  conversation?: { id: string; channel?: string | null; ig_post_caption?: string | null; ig_post_permalink?: string | null } | null;
   assignedTo?: { id: string; user: { name: string | null; email: string } } | null;
   pipelineStage?: { id: string; name: string; color: string } | null;
 }
@@ -110,6 +112,8 @@ export default function LeadDetailPage() {
   const [notes, setNotes] = useState("");
   const [savedReplies, setSavedReplies] = useState<{ id: string; title: string; content: string }[]>([]);
   const [selectedReplyContent, setSelectedReplyContent] = useState("");
+  const [taskToEdit, setTaskToEdit] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
 
   useEffect(() => {
     fetchLead();
@@ -261,6 +265,20 @@ export default function LeadDetailPage() {
     }
   }
 
+  async function handleDeleteLead() {
+    if (!confirm("Delete this lead? This cannot be undone.")) return;
+    try {
+      const token = localStorage.getItem("syntara_token") ?? "";
+      const res = await fetch(`/api/leads/${leadId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) router.push("/leads");
+    } catch (err) {
+      console.error("[LeadDetailPage] delete lead error:", err);
+    }
+  }
+
   if (loading) {
     return <div className="animate-pulse text-gray-400">Loading lead...</div>;
   }
@@ -331,6 +349,14 @@ export default function LeadDetailPage() {
             </button>
           )}
         </div>
+        <button
+          onClick={handleDeleteLead}
+          className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-red-500 hover:bg-red-50 transition"
+          title="Delete lead"
+        >
+          <Trash2 className="w-4 h-4" />
+          Delete
+        </button>
       </div>
 
       {/* Value */}
@@ -476,7 +502,7 @@ export default function LeadDetailPage() {
           ) : (
             <div className="space-y-2">
               {lead.tasks.map((task) => (
-                <div key={task.id} className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50">
+                <div key={task.id} className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 group">
                   <button
                     onClick={() => !task.completedAt && handleCompleteTask(task.id)}
                     disabled={!!task.completedAt}
@@ -486,20 +512,82 @@ export default function LeadDetailPage() {
                   >
                     {task.completedAt && <CheckCircle className="w-3.5 h-3.5 text-green-600" />}
                   </button>
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm ${task.completedAt ? "line-through text-gray-400" : "text-gray-800"}`}>
-                      {task.title}
-                    </p>
-                    {task.dueDate && (
-                      <div className="flex items-center gap-1 mt-0.5">
-                        <Clock className="w-3 h-3 text-gray-400" />
-                        <span className="text-xs text-gray-400">
-                          {format(new Date(task.dueDate), "MMM d")}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${
+                  {taskToEdit === task.id ? (
+                    <div className="flex-1 flex gap-2">
+                      <input
+                        value={editTitle}
+                        onChange={(e) => setEditTitle(e.target.value)}
+                        className="flex-1 px-2 py-1 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-violet-400"
+                      />
+                      <button
+                        onClick={async () => {
+                          try {
+                            const token = localStorage.getItem("syntara_token") ?? "";
+                            await fetch(`/api/tasks/${task.id}`, {
+                              method: "PATCH",
+                              headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                              body: JSON.stringify({ title: editTitle }),
+                            });
+                            setTaskToEdit(null);
+                            await fetchLead();
+                          } catch (err) {
+                            console.error("[handleEditTask]", err);
+                          }
+                        }}
+                        className="text-xs text-violet-600 font-medium px-2"
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={() => setTaskToEdit(null)}
+                        className="text-xs text-gray-400 px-2"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm ${task.completedAt ? "line-through text-gray-400" : "text-gray-800"}`}>
+                        {task.title}
+                      </p>
+                      {task.dueDate && (
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <Clock className="w-3 h-3 text-gray-400" />
+                          <span className="text-xs text-gray-400">
+                            {format(new Date(task.dueDate), "MMM d")}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {!taskToEdit && (
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+                      <button
+                        onClick={() => { setTaskToEdit(task.id); setEditTitle(task.title); }}
+                        className="text-xs text-gray-400 hover:text-violet-600 px-1"
+                        title="Edit task"
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (!confirm("Delete this task?")) return;
+                          try {
+                            const token = localStorage.getItem("syntara_token") ?? "";
+                            await fetch(`/api/tasks/${task.id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+                            await fetchLead();
+                          } catch (err) {
+                            console.error("[handleDeleteTask]", err);
+                          }
+                        }}
+                        className="text-xs text-gray-400 hover:text-red-500 px-1"
+                        title="Delete task"
+                      >
+                        🗑
+                      </button>
+                    </div>
+                  )}
+                  <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${
                     task.priority === "URGENT" ? "bg-red-50 text-red-600" :
                     task.priority === "HIGH" ? "bg-orange-50 text-orange-600" :
                     "bg-gray-100 text-gray-500"
@@ -516,13 +604,36 @@ export default function LeadDetailPage() {
       {activeTab === "conversation" && (
         <div className="bg-white rounded-xl border border-gray-100 p-5">
           {lead.conversation ? (
-            <button
-              onClick={() => router.push(`/inbox/${lead.conversation!.id}`)}
-              className="flex items-center gap-2 text-violet-600 hover:underline text-sm font-medium"
-            >
-              <MessageSquare className="w-4 h-4" />
-              Open conversation in Inbox
-            </button>
+            <div className="space-y-3">
+              {lead.conversation.channel === "INSTAGRAM" && (
+                <div className="flex items-start gap-2 p-3 rounded-lg bg-pink-50 border border-pink-100 text-sm">
+                  <Instagram className="w-4 h-4 text-pink-500 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-pink-700 font-medium">Instagram</p>
+                    {lead.conversation.ig_post_caption && (
+                      <p className="text-gray-600 mt-1 line-clamp-2">"{lead.conversation.ig_post_caption}"</p>
+                    )}
+                    {lead.conversation.ig_post_permalink && (
+                      <a
+                        href={lead.conversation.ig_post_permalink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-pink-500 hover:text-pink-700 mt-1 inline-block"
+                      >
+                        View post →
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )}
+              <button
+                onClick={() => router.push(`/inbox/${lead.conversation!.id}`)}
+                className="flex items-center gap-2 text-violet-600 hover:underline text-sm font-medium"
+              >
+                <MessageSquare className="w-4 h-4" />
+                Open in Inbox →
+              </button>
+            </div>
           ) : (
             <p className="text-sm text-gray-400 text-center py-8">No conversation linked to this lead</p>
           )}
