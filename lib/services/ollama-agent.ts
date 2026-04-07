@@ -21,7 +21,7 @@ const intentSchema = z.object({
   suggested_reply: z.string().optional(),
   reply: z.string().optional(), // some models use 'reply' instead
   response_zone: z.enum(["GREEN", "YELLOW", "RED"]).optional(),
-  next_action: z.enum(["send_reply", "draft_for_approval", "create_task", "move_stage", "skip", "schedule_demo", "send_demo_link", "gather_info"]).optional(),
+  next_action: z.enum(["send_reply", "draft_for_approval", "create_task", "move_stage", "skip", "schedule_demo", "send_demo_link", "gather_info", "escalate_to_human"]).optional(),
   suggested_stage: z.string().optional(),
   confidence: z.number().min(0).max(1).optional(),
   should_create_lead: z.boolean().optional(),
@@ -38,6 +38,20 @@ const STAGE_PROMPTS: Record<string, string> = {
   WON: `You are a customer success assistant. Thank the customer warmly and ensure they have everything they need.`,
   LOST: `You are a professional assistant. Handle this gracefully — acknowledge the outcome respectfully and keep the door open for future business.`,
 };
+
+const ESCALATION_KEYWORDS = [
+  "talk to a human", "talk to human", "talk to admin", "speak to human", "speak to a human",
+  "speak to admin", "connect me to someone", "real person", "real human", "customer service",
+  "customer support", "help me", "not a bot", "you are a bot", "is this a bot",
+  "escalate", "escalation", "manager", "supervisor", "i want to talk", "let me talk to",
+  "can i speak", "can i talk", "need help from", "need to speak", "can you connect me",
+  "connect me with", "speak with", "speak to someone", "someone help", "agent",
+];
+
+function detectEscalation(content: string): boolean {
+  const lower = content.toLowerCase();
+  return ESCALATION_KEYWORDS.some((kw) => lower.includes(kw));
+}
 
 function buildSystemPrompt(
   businessFacts: string | null,
@@ -159,6 +173,41 @@ Analyze this message and generate a suggested reply. Respond with valid JSON onl
       },
     });
 
+    // 3.5. Check for escalation keywords in the inbound message
+    const wantsHuman = detectEscalation(message.content ?? "");
+    if (wantsHuman) {
+      console.log(`[Orchestrator] Human escalation detected in message ${messageId}`);
+      // Create a high-priority task for the workspace admin
+      await prisma.task.create({
+        data: {
+          workspaceId,
+          leadId: lead?.id ?? undefined,
+          title: `🔴 Human escalation — ${contact.displayName ?? contact.username ?? "Unknown contact"}`,
+          description: `Customer requested to speak with a human or admin.\n\nMessage: "${message.content}"\n\nSource: ${conversation.channel}`,
+          type: "FOLLOW_UP",
+          priority: "URGENT",
+        },
+      });
+      // Set response zone to RED so it won't auto-reply
+      await prisma.message.update({
+        where: { id: messageId },
+        data: { response_zone: "RED" },
+      });
+      // Log escalation
+      if (lead) {
+        await logActivity(
+          workspaceId,
+          lead.id,
+          "escalation",
+          `Customer requested to speak with human/admin: "${message.content}"`,
+          { escalation: true, conversationId },
+          conversationId,
+        );
+      }
+      console.log(`[Orchestrator] Escalation task created, skipping auto-reply`);
+      return; // Don't send any AI reply — human must handle
+    }
+
     // 4. Determine auto-reply behavior
     const responseZone = parsed.response_zone ?? "YELLOW";
     const shouldAutoReply = settings?.autoReplyEnabled === true;
@@ -170,6 +219,33 @@ Analyze this message and generate a suggested reply. Respond with valid JSON onl
 
     if (nextAction === "skip") {
       console.log("[Orchestrator] skipping — no suggested reply");
+      return;
+    }
+
+    // Handle explicit AI escalation
+    if (nextAction === "escalate_to_human") {
+      console.log("[Orchestrator] AI triggered escalation to human");
+      await prisma.task.create({
+        data: {
+          workspaceId,
+          leadId: lead?.id ?? undefined,
+          title: `🔴 Human escalation — ${contact.displayName ?? contact.username ?? "Unknown contact"}`,
+          description: `AI flagged this conversation for human attention.\n\nIntent: ${parsed.intent ?? "unknown"}\n\nMessage: "${message.content}"`,
+          type: "FOLLOW_UP",
+          priority: "HIGH",
+        },
+      });
+      await prisma.message.update({
+        where: { id: messageId },
+        data: { response_zone: "RED" },
+      });
+      if (lead) {
+        await logActivity(
+          workspaceId, lead.id, "escalation",
+          `AI flagged for human attention — intent: ${parsed.intent ?? "unknown"}`,
+          { escalation: true, intent: parsed.intent }, conversationId,
+        );
+      }
       return;
     }
 
