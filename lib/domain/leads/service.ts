@@ -58,6 +58,7 @@ export async function getLeads(
       contact: true,
       assignedTo: { include: { user: { select: { name: true, email: true } } } },
       pipelineStage: true,
+      tasks: true,
     },
     orderBy: { updatedAt: "desc" },
     take: 100,

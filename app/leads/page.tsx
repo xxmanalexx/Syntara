@@ -24,6 +24,7 @@ interface Lead {
   contact: { displayName: string | null; username: string | null; profileImageUrl: string | null };
   assignedTo?: { id: string; user: { name: string | null; email: string } } | null;
   pipelineStage?: { id: string; name: string; color: string } | null;
+  tasks?: { id: string; completedAt: string | null }[];
 }
 
 export default function LeadsPage() {
@@ -79,6 +80,12 @@ export default function LeadsPage() {
   function formatValue(value: number | null, currency: string) {
     if (value == null) return null;
     return `${currency} ${value.toLocaleString()}`;
+  }
+
+  function getTaskCounts(lead: Lead) {
+    const total = lead.tasks?.length ?? 0;
+    const completed = lead.tasks?.filter((t) => t.completedAt).length ?? 0;
+    return { total, completed };
   }
 
   if (loading) {
@@ -174,6 +181,16 @@ export default function LeadsPage() {
                         {lead.source && (
                           <p className="text-xs text-gray-400 mb-2">{lead.source.replace(/_/g, " ")}</p>
                         )}
+
+                        {(() => { const tc = getTaskCounts(lead); return tc.total > 0 ? (
+                          <div className="flex items-center gap-1 mb-2">
+                            <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${
+                              tc.completed === tc.total ? "bg-green-100 text-green-600" : "bg-orange-100 text-orange-600"
+                            }`}>
+                              {tc.completed}/{tc.total} tasks
+                            </span>
+                          </div>
+                        ) : null; })()}
 
                         <div className="flex items-center justify-between">
                           {lead.assignedTo && (
