@@ -79,6 +79,7 @@ interface Lead {
   tasks: Task[];
   activities: LeadActivity[];
   conversation?: { id: string; channel?: string | null; ig_post_caption?: string | null; ig_post_permalink?: string | null } | null;
+  conversations?: { id: string; channel?: string | null; ig_post_caption?: string | null; ig_post_permalink?: string | null }[];
   assignedTo?: { id: string; user: { name: string | null; email: string } } | null;
   pipelineStage?: { id: string; name: string; color: string } | null;
 }
@@ -574,19 +575,19 @@ export default function LeadDetailPage() {
 
       {activeTab === "conversation" && (
         <div className="bg-white rounded-xl border border-gray-100 p-5">
-          {lead.conversation ? (
+          {(lead.conversations ?? [])[0] ? (
             <div className="space-y-3">
-              {lead.conversation.channel === "INSTAGRAM" && (
+              {(lead.conversations ?? [])[0]?.channel === "INSTAGRAM" && (
                 <div className="flex items-start gap-2 p-3 rounded-lg bg-pink-50 border border-pink-100 text-sm">
                   <Instagram className="w-4 h-4 text-pink-500 mt-0.5 flex-shrink-0" />
                   <div className="flex-1">
                     <p className="text-pink-700 font-medium">Instagram</p>
-                    {lead.conversation.ig_post_caption && (
-                      <p className="text-gray-600 mt-1 line-clamp-2">"{lead.conversation.ig_post_caption}"</p>
+                    {(lead.conversations ?? [])[0]?.ig_post_caption && (
+                      <p className="text-gray-600 mt-1 line-clamp-2">"{(lead.conversations ?? [])[0]?.ig_post_caption}"</p>
                     )}
-                    {lead.conversation.ig_post_permalink && (
+                    {(lead.conversations ?? [])[0]?.ig_post_permalink && (
                       <a
-                        href={lead.conversation.ig_post_permalink}
+                        href={(lead.conversations ?? [])[0]?.ig_post_permalink ?? "#"}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-xs text-pink-500 hover:text-pink-700 mt-1 inline-block"
@@ -598,7 +599,7 @@ export default function LeadDetailPage() {
                 </div>
               )}
               <button
-                onClick={() => router.push(`/inbox/${lead.conversation!.id}`)}
+                onClick={() => router.push(`/inbox/${(lead.conversations ?? [])[0]?.id}`)}
                 className="flex items-center gap-2 text-violet-600 hover:underline text-sm font-medium"
               >
                 <MessageSquare className="w-4 h-4" />

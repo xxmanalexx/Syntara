@@ -9,14 +9,18 @@ import type {
   Conversation,
 } from "@prisma/client";
 
-export type LeadWithDetails = Lead & {
-  contact: Contact;
-  tasks: Task[];
-  activities: LeadActivity[];
-  conversations?: Conversation[];
-  assignedTo?: { id: string; user: { name?: string | null; email: string } } | null;
-  pipelineStage?: { id: string; name: string; color: string } | null;
-};
+export type LeadWithDetails = Prisma.LeadGetPayload<{
+  include: {
+    contact: true;
+    tasks: { orderBy: { createdAt: "desc" } };
+    activities: { orderBy: { createdAt: "desc" }; take: 50 };
+    conversations: true;
+    assignedTo: { include: { user: { select: { name: true; email: true } } } };
+    pipelineStage: true;
+    conversation: true;
+    workspace: true;
+  };
+}>;
 
 export type CreateLeadData = {
   contactId: string;
@@ -65,7 +69,7 @@ export async function getLeads(
   });
 }
 
-export async function getLeadWithDetails(leadId: string): Promise<LeadWithDetails | null> {
+export async function getLeadWithDetails(leadId: string) {
   return prisma.lead.findUnique({
     where: { id: leadId },
     include: {
