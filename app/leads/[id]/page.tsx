@@ -108,11 +108,29 @@ export default function LeadDetailPage() {
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [addingTask, setAddingTask] = useState(false);
   const [notes, setNotes] = useState("");
+  const [savedReplies, setSavedReplies] = useState<{ id: string; title: string; content: string }[]>([]);
+  const [selectedReplyContent, setSelectedReplyContent] = useState("");
 
   useEffect(() => {
     fetchLead();
     fetchStages();
+    fetchSavedReplies();
   }, [leadId]);
+
+  async function fetchSavedReplies() {
+    try {
+      const token = localStorage.getItem("syntara_token") ?? "";
+      const res = await fetch("/api/templates/saved-replies", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSavedReplies(data.replies ?? []);
+      }
+    } catch (err) {
+      console.error("[fetchSavedReplies]", err);
+    }
+  }
 
   async function fetchLead() {
     try {
@@ -196,10 +214,15 @@ export default function LeadDetailPage() {
       const res = await fetch("/api/tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ leadId, title: newTaskTitle.trim() }),
+        body: JSON.stringify({
+          leadId,
+          title: newTaskTitle.trim(),
+          description: selectedReplyContent || undefined,
+        }),
       });
       if (res.ok) {
         setNewTaskTitle("");
+        setSelectedReplyContent("");
         await fetchLead();
       } else {
         const err = await res.text();
@@ -400,12 +423,32 @@ export default function LeadDetailPage() {
       {activeTab === "tasks" && (
         <div className="bg-white rounded-xl border border-gray-100 p-5">
           <form onSubmit={handleAddTask} className="flex gap-3 mb-5">
-            <input
-              value={newTaskTitle}
-              onChange={(e) => setNewTaskTitle(e.target.value)}
-              placeholder="Add a task..."
-              className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-violet-400"
-            />
+            <div className="relative flex-1">
+              <input
+                value={newTaskTitle}
+                onChange={(e) => setNewTaskTitle(e.target.value)}
+                placeholder="Add a task..."
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-violet-400 pr-24"
+              />
+              <select
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (!val) return;
+                  const reply = savedReplies.find((r) => r.id === val);
+                  if (reply) {
+                    setNewTaskTitle(reply.title);
+                    setSelectedReplyContent(reply.content);
+                  }
+                  e.target.value = "";
+                }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 bg-transparent border-none cursor-pointer focus:outline-none"
+              >
+                <option value="">Pick from saved →</option>
+                {savedReplies.map((r) => (
+                  <option key={r.id} value={r.id}>{r.title}</option>
+                ))}
+              </select>
+            </div>
             <button
               type="submit"
               disabled={addingTask || !newTaskTitle.trim()}
@@ -415,6 +458,18 @@ export default function LeadDetailPage() {
               Add
             </button>
           </form>
+          {selectedReplyContent && (
+            <div className="mb-4 p-3 rounded-lg bg-violet-50 border border-violet-100 text-sm text-violet-700">
+              <p className="font-medium text-violet-600 mb-1">Reply content:</p>
+              <p className="whitespace-pre-wrap">{selectedReplyContent}</p>
+              <button
+                onClick={() => { setSelectedReplyContent(""); setNewTaskTitle(""); }}
+                className="mt-2 text-xs text-violet-400 hover:text-violet-600"
+              >
+                Clear
+              </button>
+            </div>
+          )}
 
           {lead.tasks.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-8">No tasks yet</p>
